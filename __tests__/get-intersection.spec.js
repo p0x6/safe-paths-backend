@@ -12,8 +12,8 @@ let device3
 
 describe('location', () => {
   beforeEach(async () => {
-    await Device.remove()
-    await Location.remove()
+    await Device.deleteMany()
+    await Location.deleteMany()
     device1 = await new Device({
       uuid: uuidv4(),
     }).save()
@@ -78,7 +78,9 @@ describe('location', () => {
       .get('body')
 
 
-    console.log('RESPONSE:', response)
+    // console.log('RESPONSE:', response)
+    // console.dir(response, { depth: 20, colors: true })
+
     // sinon.assert.match(
     //   response,
     //   [{

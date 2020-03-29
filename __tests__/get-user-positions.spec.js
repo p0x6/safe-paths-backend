@@ -12,8 +12,8 @@ let device3
 
 describe('location', () => {
   beforeEach(async () => {
-    await Device.remove()
-    await Location.remove()
+    await Device.deleteMany()
+    await Location.deleteMany()
     device1 = await new Device({
       uuid: uuidv4(),
     }).save()
