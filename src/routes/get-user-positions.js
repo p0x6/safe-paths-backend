@@ -12,6 +12,7 @@ export default async (req, res) => {
       latitude: Joi.number().min(-90).max(90).required(),
       longitude: Joi.number().min(-180).max(180).required(),
       radius: Joi.number().required(),
+      uuid: Joi.string().required(),
     })
 
     const { error, value } = schema.validate(req.query)
@@ -67,6 +68,11 @@ export default async (req, res) => {
           uuid: { $arrayElemAt: ['$device.uuid', 0] },
           location: true,
           time: { $subtract: ['$time', new Date('1970-01-01')] },
+        },
+      },
+      {
+        $match: {
+          uuid: { $ne: value.uuid },
         },
       },
     ])
