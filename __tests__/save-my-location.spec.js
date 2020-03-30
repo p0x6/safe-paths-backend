@@ -12,8 +12,8 @@ describe('location', () => {
     const data = {
       uuid: uuidv4(),
       coordinates: {
-        longitude: random(-90, 90),
-        latitude: random(-180,180),
+        longitude: random(-180, 180),
+        latitude: random(-90,90),
       },
     }
     await request(app)

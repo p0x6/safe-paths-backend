@@ -1,4 +1,5 @@
 import Joi from '@hapi/joi'
+import moment from 'moment'
 import restifyErrors from 'restify-errors'
 import { Location } from '../models/index.js'
 import { logger } from '../libs/index.js'
@@ -6,8 +7,9 @@ import { dump } from '../utils/index.js'
 
 const { InvalidArgumentError } = restifyErrors
 const {
-  INTERSECTION_TIME,
+  INTERSECTION_DELTA_MINUTES,
   INTERSECTION_DISTANCE,
+  INTERSECTION_PAST_DAYS,
 } = process.env
 
 export default async (req, res) => {
@@ -24,12 +26,10 @@ export default async (req, res) => {
       throw new InvalidArgumentError(errMsg)
     }
 
-    const period = new Date()
-    period.setMinutes(period.getMinutes() - 5)
-
     const intersectedUUID = {}
+    const intersectionResult = []
 
-    const devicesNearby = await Location.aggregate([
+    await Location.aggregate([
       {
         $lookup:
         {
@@ -49,57 +49,25 @@ export default async (req, res) => {
       },
       {
         $match: {
-          uuid: {
-            $eq: value.uuid,
-          },
+          $and: [{
+            uuid: {
+              $eq: value.uuid,
+            },
+          }, {
+            createdAt: {
+              $gt: moment().subtract(INTERSECTION_PAST_DAYS, 'days').toDate(),
+            },
+          }],
         },
       },
-
-
-      // {
-
-      // },
-      // {
-      //   $geoNear: {
-      //     near: {
-      //       type: 'Point',
-      //       coordinates: [value.longitude,value.latitude],
-      //     },
-      //     distanceField: 'distance',
-      //     spherical: true,
-      //     maxDistance: value.radius,
-      //   },
-      // },
-      // {
-      //   $match: {
-      //     createdAt: {
-      //       $gt: period,
-      //     },
-      //   },
-      // },
-      // {
-      //   $group: {
-      //     _id: '$device',
-      //     device: { $first: '$device' },
-      //     location: { $first: '$location' },
-      //     time: { $first: '$createdAt' },
-      //   },
-      // },
-
-      // {
-      //   $project: {
-      //     _id: false,
-      //     uuid: { $arrayElemAt: ['$device.uuid', 0] },
-      //     location: true,
-      //     time: { $subtract: ['$time', new Date('1970-01-01')] },
-      //   },
-      // },
     ])
       .cursor({ batchSize: 1000 })
       .exec()
       .eachAsync(async doc => {
-        // use doc
-        console.log('$$$', doc)
+        const date = moment(doc.createdAt).format('YYYY-MM-DD')
+        if (!intersectedUUID[date]) {
+          intersectedUUID[date] = []
+        }
 
         const intersected = await Location.aggregate([
           {
@@ -110,8 +78,8 @@ export default async (req, res) => {
               },
               query: {
                 createdAt: {
-                  $gt: new Date(doc.createdAt - (60 * 1000 * parseInt(INTERSECTION_TIME, 10))),
-                  $lt: new Date(doc.createdAt + (60 * 1000 * parseInt(INTERSECTION_TIME, 10))),
+                  $gt: moment(doc.createdAt).subtract(INTERSECTION_DELTA_MINUTES, 'minutes').toDate(),
+                  $lt: moment(doc.createdAt).add(INTERSECTION_DELTA_MINUTES, 'minutes').toDate(),
                 },
               },
               distanceField: 'distance',
@@ -119,47 +87,74 @@ export default async (req, res) => {
               maxDistance: parseInt(INTERSECTION_DISTANCE, 10),
             },
           },
-          // {
-          //   $group: {
-          //     _id: '$device',
-          //     device: { $first: '$device' },
-          //     location: { $first: '$location' },
-          //     time: { $first: '$createdAt' },
-          //   },
-          // },
-          // {
-          //   $lookup:
-          //   {
-          //     from: 'devices',
-          //     localField: 'device',
-          //     foreignField: '_id',
-          //     as: 'device',
-          //   },
-          // },
-          // {
-          //   $project: {
-          //     _id: false,
-          //     uuid: { $arrayElemAt: ['$device.uuid', 0] },
-          //     location: true,
-          //     time: { $subtract: ['$time', new Date('1970-01-01')] },
-          //   },
-          // },
+          {
+            $group: {
+              _id: '$device',
+              device: { $first: '$device' },
+              location: { $first: '$location' },
+              time: { $first: '$createdAt' },
+            },
+          },
+          {
+            $lookup:
+            {
+              from: 'devices',
+              localField: 'device',
+              foreignField: '_id',
+              as: 'device',
+            },
+          },
+          {
+            $project: {
+              _id: false,
+              uuid: { $arrayElemAt: ['$device.uuid', 0] },
+              location: {
+                coordinates: true,
+              },
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$time' } },
+            },
+          },
           {
             $match: {
-              uuid: { $ne: value.uuid },
+              $and: [{
+                uuid: { $ne: value.uuid },
+              }, {
+                uuid: { $nin: intersectedUUID[date] },
+              }],
+            },
+          },
+          {
+            $group: {
+              _id: '$date',
+              count: { '$sum': 1 },
+              uuid: { $push: '$uuid' },
+            },
+          },
+          {
+            $project: {
+              _id: false,
+              count: true,
+              date: '$_id',
+              uuid: true,
             },
           },
         ])
 
-        console.log('INTERSECTED:', intersected)
+        intersectedUUID[date] = [...intersectedUUID[date], ...intersected[0].uuid]
+
+        const intersectionAtDate = intersectionResult.find(x => x.date === date)
+
+        if (intersectionAtDate) {
+          intersectionAtDate.count += intersected[0].count
+        } else {
+          intersectionResult.push(...intersected)
+        }
+
+        return intersected
       })
 
-
-    // cursor
-    // console.dir(JSON.parse(JSON.stringify(devicesNearby)), { depth: 20, colors: true })
-
     res.setHeader('Content-Type', 'application/json')
-    return res.json(devicesNearby)
+    return res.json(intersectionResult.map(dump.dumpIntersection))
   } catch (err) {
     logger.error(err)
 

@@ -8,4 +8,9 @@ export const dumpUserLocation = userLocation => ({
   time: userLocation.time,
 })
 
+export const dumpIntersection = intersection => ({
+  count: intersection.count,
+  date: intersection.date,
+})
+
 export const dumpError = () => ({})

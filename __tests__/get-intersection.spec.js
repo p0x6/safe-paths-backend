@@ -1,4 +1,5 @@
 import sinon from 'sinon'
+import moment from 'moment'
 import uuid from 'uuid'
 import request from 'supertest'
 import { Location, Device } from '../src/models/index.js'
@@ -44,6 +45,17 @@ describe('location', () => {
       },
     }).save()
     await new Location({
+      device: device2._id,
+      location: {
+        type: 'Point',
+        coordinates: [
+          30.465188,
+          50.520011,
+        ],
+      },
+      createdAt: moment().subtract(5, 'hours').toDate(),
+    }).save()
+    await new Location({
       device: device3._id,
       location: {
         type: 'Point',
@@ -52,6 +64,17 @@ describe('location', () => {
           50.520011,
         ],
       },
+    }).save()
+    await new Location({
+      device: device3._id,
+      location: {
+        type: 'Point',
+        coordinates: [
+          30.465188,
+          50.520011,
+        ],
+      },
+      createdAt: moment().subtract(5, 'hours').toDate(),
     }).save()
     await new Location({
       device: device1._id,
@@ -65,7 +88,7 @@ describe('location', () => {
     }).save()
   })
 
-  it.only('should return intersections', async () => {
+  it('should return intersections', async () => {
     const UUID = device3.uuid
 
     const response = await request(app)
@@ -77,27 +100,12 @@ describe('location', () => {
       .end()
       .get('body')
 
-
-    // console.log('RESPONSE:', response)
-    // console.dir(response, { depth: 20, colors: true })
-
-    // sinon.assert.match(
-    //   response,
-    //   [{
-    //     location: {
-    //       latitude: sinon.match.number,
-    //       longitude: sinon.match.number,
-    //     },
-    //     time: sinon.match.number,
-    //     uuid: device2.uuid,
-    //   }, {
-    //     location: {
-    //       latitude: sinon.match.number,
-    //       longitude: sinon.match.number,
-    //     },
-    //     time: sinon.match.number,
-    //     uuid: device1.uuid,
-    //   }],
-    // )
+    sinon.assert.match(
+      response,
+      [{
+        count: 2,
+        date: moment().format('YYYY-MM-DD'),
+      }],
+    )
   })
 })

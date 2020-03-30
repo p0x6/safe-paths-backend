@@ -1,4 +1,5 @@
 import Joi from '@hapi/joi'
+import moment from 'moment'
 import restifyErrors from 'restify-errors'
 import { Location } from '../models/index.js'
 import { logger } from '../libs/index.js'
@@ -23,9 +24,6 @@ export default async (req, res) => {
       throw new InvalidArgumentError(errMsg)
     }
 
-    const period = new Date()
-    period.setMinutes(period.getMinutes()-5)
-
     const devicesNearby = await Location.aggregate([
       {
         $geoNear: {
@@ -41,7 +39,7 @@ export default async (req, res) => {
       {
         $match: {
           createdAt: {
-            $gt: period,
+            $gt: moment().subtract(5, 'minutes').toDate(),
           },
         },
       },
