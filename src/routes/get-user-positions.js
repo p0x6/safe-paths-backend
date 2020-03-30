@@ -37,24 +37,22 @@ export default async (req, res) => {
           distanceField: 'distance',
           spherical: true,
           maxDistance: value.radius,
+          limit: 100000,
         },
-      },
-      {
+      }, {
         $match: {
           createdAt: {
             $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
           },
         },
-      },
-      {
+      }, {
         $group: {
           _id: '$device',
           device: { $first: '$device' },
           location: { $first: '$location' },
           time: { $first: '$createdAt' },
         },
-      },
-      {
+      }, {
         $lookup:
           {
             from: 'devices',

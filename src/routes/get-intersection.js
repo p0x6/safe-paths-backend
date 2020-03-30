@@ -29,39 +29,35 @@ export default async (req, res) => {
     const intersectedUUID = {}
     const intersectionResult = []
 
-    await Location.aggregate([
-      {
-        $lookup:
+    await Location.aggregate([{
+      $match: {
+        createdAt: {
+          $gt: moment().subtract(INTERSECTION_PAST_DAYS, 'days').toDate(),
+        },
+      },
+    }, {
+      $lookup:
         {
           from: 'devices',
           localField: 'device',
           foreignField: '_id',
           as: 'device',
         },
+    }, {
+      $project: {
+        _id: false,
+        uuid: { $arrayElemAt: ['$device.uuid', 0] },
+        location: true,
+        createdAt: true,
       },
-      {
-        $project: {
-          _id: false,
-          uuid: { $arrayElemAt: ['$device.uuid', 0] },
-          location: true,
-          createdAt: true,
+    }, {
+      $match: {
+        uuid: {
+          $eq: value.uuid,
         },
       },
-      {
-        $match: {
-          $and: [{
-            uuid: {
-              $eq: value.uuid,
-            },
-          }, {
-            createdAt: {
-              $gt: moment().subtract(INTERSECTION_PAST_DAYS, 'days').toDate(),
-            },
-          }],
-        },
-      },
-    ])
-      .cursor({ batchSize: 1000 })
+    }])
+      .cursor({ batchSize: 10000 })
       .exec()
       .eachAsync(async doc => {
         const date = moment(doc.createdAt).format('YYYY-MM-DD')
@@ -85,17 +81,16 @@ export default async (req, res) => {
               distanceField: 'distance',
               spherical: true,
               maxDistance: parseInt(INTERSECTION_DISTANCE, 10),
+              limit: 100000,
             },
-          },
-          {
+          }, {
             $group: {
               _id: '$device',
               device: { $first: '$device' },
               location: { $first: '$location' },
               time: { $first: '$createdAt' },
             },
-          },
-          {
+          }, {
             $lookup:
             {
               from: 'devices',
@@ -103,8 +98,7 @@ export default async (req, res) => {
               foreignField: '_id',
               as: 'device',
             },
-          },
-          {
+          }, {
             $project: {
               _id: false,
               uuid: { $arrayElemAt: ['$device.uuid', 0] },
@@ -113,8 +107,7 @@ export default async (req, res) => {
               },
               date: { $dateToString: { format: '%Y-%m-%d', date: '$time' } },
             },
-          },
-          {
+          }, {
             $match: {
               $and: [{
                 uuid: { $ne: value.uuid },
@@ -122,15 +115,13 @@ export default async (req, res) => {
                 uuid: { $nin: intersectedUUID[date] },
               }],
             },
-          },
-          {
+          }, {
             $group: {
               _id: '$date',
               count: { '$sum': 1 },
               uuid: { $push: '$uuid' },
             },
-          },
-          {
+          }, {
             $project: {
               _id: false,
               count: true,
