@@ -6,6 +6,9 @@ import { logger } from '../libs/index.js'
 import { dump } from '../utils/index.js'
 
 const { InvalidArgumentError } = restifyErrors
+const {
+  INTERSECTION_DELTA_MINUTES,
+} = process.env
 
 export default async (req, res) => {
   try {
@@ -39,7 +42,7 @@ export default async (req, res) => {
       {
         $match: {
           createdAt: {
-            $gt: moment().subtract(5, 'minutes').toDate(),
+            $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
           },
         },
       },
