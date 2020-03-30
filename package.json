@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "if [[ ${NODE_ENV:-production} == 'development' ]]; then nodemon --experimental-modules src/index.js; else env NODE_ENV=production node --experimental-modules ./src/index.js; fi",
+    "start": "noe ./src/app.js",
     "test": "env NODE_ENV=test mocha --experimental-modules --exit __tests__/**/*.spec.js",
     "lint": "eslint \"src/**/*.js\" --config .eslintrc"
   },
@@ -15,6 +15,7 @@
     "@hapi/joi": "^17.1.1",
     "body-parser": "^1.19.0",
     "dotenv": "^8.2.0",
+    "esm": "^3.2.25",
     "express": "^4.17.1",
     "moment": "^2.24.0",
     "mongoose": "^5.9.6",
