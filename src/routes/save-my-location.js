@@ -24,17 +24,18 @@ export default async (req, res) => {
       throw new InvalidArgumentError(errMsg)
     }
 
-    const device = await Device.updateOne({
+    let device = await Device.findOne({
       uuid: value.uuid,
-    }, {
-      uuid: value.uuid,
-    }, {
-      upsert: true,
-      setDefaultsOnInsert: true,
     })
 
+    if (!device) {
+      device = await new Device({
+        uuid: value.uuid,
+      }).save()
+    }
+
     await new Location({
-      device: device.upserted[0]._id,
+      device: device._id,
       location: {
         type: 'Point',
         coordinates: [
