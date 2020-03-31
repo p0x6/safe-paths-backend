@@ -11,8 +11,10 @@ let device1
 let device2
 let device3
 
-describe('location', () => {
-  beforeEach(async () => {
+describe('get-intersection', () => {
+  beforeEach(async function() {
+    this.timeout(3000)
+
     await Device.deleteMany()
     await Location.deleteMany()
     device1 = await new Device({
@@ -88,7 +90,7 @@ describe('location', () => {
     }).save()
   })
 
-  it('should return intersections', async () => {
+  it.only('should return intersections', async () => {
     const UUID = device3.uuid
 
     const response = await request(app)
@@ -106,6 +108,40 @@ describe('location', () => {
         count: 2,
         date: moment().format('YYYY-MM-DD'),
       }],
+    )
+  })
+
+  it('should return empty array', async () => {
+    await Device.deleteMany()
+    await Location.deleteMany()
+    device1 = await new Device({
+      uuid: uuidv4(),
+    }).save()
+    await new Location({
+      device: device1._id,
+      location: {
+        type: 'Point',
+        coordinates: [
+          30.465434,
+          50.520137,
+        ],
+      },
+    }).save()
+
+    const UUID = device1.uuid
+
+    const response = await request(app)
+      .get(`${API_PREFIX}/get-intersection?uuid=${UUID}`)
+      .set('Accept', 'application/json')
+      .set('Content-Type', 'application/json')
+      .send()
+      .expect(200)
+      .end()
+      .get('body')
+
+    sinon.assert.match(
+      response,
+      [],
     )
   })
 })

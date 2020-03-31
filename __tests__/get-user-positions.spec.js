@@ -10,8 +10,10 @@ let device1
 let device2
 let device3
 
-describe('location', () => {
-  beforeEach(async () => {
+describe('get-user-positions', () => {
+  beforeEach(async function() {
+    this.timeout(3000)
+
     await Device.deleteMany()
     await Location.deleteMany()
     device1 = await new Device({
@@ -88,14 +90,12 @@ describe('location', () => {
           longitude: sinon.match.number,
         },
         time: sinon.match.number,
-        uuid: device2.uuid,
       }, {
         location: {
           latitude: sinon.match.number,
           longitude: sinon.match.number,
         },
         time: sinon.match.number,
-        uuid: device1.uuid,
       }],
     )
   })

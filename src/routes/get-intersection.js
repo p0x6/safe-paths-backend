@@ -131,11 +131,13 @@ export default async (req, res) => {
           },
         ])
 
-        intersectedUUID[date] = [...intersectedUUID[date], ...intersected[0].uuid]
+        if (intersected.length > 0 && intersected[0].uuid) {
+          intersectedUUID[date] = [...intersectedUUID[date], ...intersected[0].uuid]
+        }
 
         const intersectionAtDate = intersectionResult.find(x => x.date === date)
 
-        if (intersectionAtDate) {
+        if (intersectionAtDate && intersected.length > 0 && intersected[0].count) {
           intersectionAtDate.count += intersected[0].count
         } else {
           intersectionResult.push(...intersected)

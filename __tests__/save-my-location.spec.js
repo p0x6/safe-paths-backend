@@ -7,7 +7,7 @@ const uuidv4 = uuid.v4
 const { API_PREFIX } = process.env
 const random = (min, max) => Math.floor(Math.random() * (+max - +min)) + +min
 
-describe('location', () => {
+describe('save-my-location', () => {
   it('should save location', async () => {
     const data = {
       uuid: uuidv4(),
