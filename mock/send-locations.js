@@ -15,8 +15,8 @@ const main = async () => {
     const mockData = {
       uuid: deviceUUID,
       coordinates: {
-        longitude: random(30.465000, 30.465500),
-        latitude: random(50.520000, 50.520200),
+        longitude: random(-122.4, -122.5),
+        latitude: random(37.7, 37.8),
       },
     }
     console.dir(mockData, { depth: 20, colors: true })
