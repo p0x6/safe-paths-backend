@@ -1,6 +1,8 @@
 import googleMaps from '@googlemaps/google-maps-services-js'
 import Joi from '@hapi/joi'
-import moment from 'moment'
+import moment from 'moment-timezone'
+import geoTz from 'geo-tz'
+
 import restifyErrors from 'restify-errors'
 import { Location } from '../models/index.js'
 import { logger, busyHours } from '../libs/index.js'
@@ -80,6 +82,8 @@ export default async (req, res) => {
       },
     ])
 
+    const timezone = geoTz(value.latitude, value.longitude)[0]
+    const dayOfWeek = moment().tz(timezone).isoWeekday() // .format('ddd')
     const places = await client
       .placesNearby({
         params: {
@@ -95,24 +99,38 @@ export default async (req, res) => {
 
     // console.dir(places.data.results, { depth: 20, colors: true })
 
-    const placeInfo = await client.placeDetails({
+    const busyHoursResult = await Promise.all(places.data.results.map(place => client.placeDetails({
       params: {
-        place_id: 'ChIJV4RnDWLS1EAR5wwITqPnGTE',//places.data.results[0].place_id,
+        place_id: place.place_id,
         key: GOOGLE_MAPS_API_KEY,
       },
-    })
+    }).then(async placeInfo => {
+      console.dir(placeInfo.data.result, { depth: 20, colors: true })
 
+      const busyHoursResult = await busyHours(placeInfo.data.result.url)
 
+      if (!busyHoursResult || !busyHoursResult.week || busyHoursResult.week.length !== 7) {
+        return null
+      }
 
-    console.log('#############################')
-    console.dir(placeInfo.data.result.url, { depth: 20, colors: true })
-
-    const busyHoursResult = await busyHours(placeInfo.data.result.url)
-
-    console.dir(busyHoursResult, { depth: 20, colors: true })
+      return {
+        placeId: placeInfo.data.result.place_id,
+        name: placeInfo.data.result.name,
+        address: placeInfo.data.result.address_components.map(v => v.long_name).join(', '),
+        location: {
+          type: 'Point',
+          coordinates: [placeInfo.data.result.geometry.location.lng, placeInfo.data.result.geometry.location.lat],
+        },
+        busyPercentage: busyHoursResult.week[dayOfWeek].hours,
+      }
+    },
+    )))
 
     res.setHeader('Content-Type', 'application/json')
-    return res.json(devicesNearby.map(dump.dumpUserLocation))
+    return res.json({
+      users: devicesNearby.map(dump.dumpUserLocation),
+      places: busyHoursResult.filter(Boolean).map(dump.dumpPlace),
+    })
   } catch(err) {
     logger.error(err)
 

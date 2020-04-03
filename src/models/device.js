@@ -16,6 +16,8 @@ class Device {}
 
 deviceSchema.loadClass(Device)
 
+deviceSchema.index({ uuid: 1 }, { unique: true })
+
 delete mongoose.connection.models.Device
 
 export default mongoose.model('Device', deviceSchema)

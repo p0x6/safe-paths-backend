@@ -15,16 +15,20 @@ const extractData = html => {
   let first = eval(script)
   let second = eval(first[3][6].replace(')]}\'', ''))
 
-  console.dir(second[6][84], { depth: 20, colors: true })
-
   return second[6][84]
 }
 
 const processHtml = html => {
-  const popular_times = extractData(html)
+  let popular_times
+  try{
+    popular_times = extractData(html)
+  } catch(error){
+    console.dir(error, { depth: 20, colors: true })
+    return null
+  }
 
   if (!popular_times) {
-    return { status: 'error', message: 'Place has no popular hours' }
+    return null//{ status: 'error', message: 'Place has no popular hours' }
   }
 
 
@@ -67,7 +71,13 @@ const fetchHtml = async(url) => {
 }
 
 export default async placeUrl => {
+  console.time(`LOADING-${placeUrl}`)
   const html = await fetchHtml(placeUrl)
+  console.timeEnd(`LOADING-${placeUrl}`)
 
-  return processHtml(html)
+  console.time(`PARSING-${placeUrl}`)
+  const busyHours = processHtml(html)
+  console.timeEnd(`PARSING-${placeUrl}`)
+
+  return busyHours
 }
