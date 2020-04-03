@@ -1,7 +1,11 @@
 import redis from 'redis'
 import logger from './logger.js'
 
-const client = redis.createClient()
+const { REDIS_URI } = process.env
+
+const client = redis.createClient({
+  url: REDIS_URI,
+})
 
 client.on('connect', () => {
   logger.info('[REDIS] Connected to redis')
