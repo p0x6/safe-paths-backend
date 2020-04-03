@@ -110,7 +110,7 @@ export default async (req, res) => {
     let placesNotInCache = places.data.results.filter(place => !placesMap[place.place_id])
 
     if (placesInCache.length > 0) {
-      let placesToExclude = await Promise.all(placesNotInCache.map(place => redis.getExcludeAsync(place.place_id)))
+      let placesToExclude = await Promise.all(placesNotInCache.map(place => redis.getAsync(`exclude__${place.place_id}`)))
 
       if (placesToExclude.length > 0) {
         placesNotInCache = placesNotInCache.filter(place => !placesToExclude.find(excludePlaceId => excludePlaceId !== place.place_id))
@@ -155,7 +155,7 @@ export default async (req, res) => {
     }).map(dump.dumpPlace)
 
 
-    await Promise.all(placesToExclude.map(placeId => redis.setExcludeAsync(placeId)))
+    await Promise.all(placesToExclude.map(placeId => redis.setAsync(`exclude__${placeId}`, placeId)))
     await Promise.all(fetchedPlaces.map(place => redis.setAsync(place.placeId, place)))
 
     res.setHeader('Content-Type', 'application/json')
