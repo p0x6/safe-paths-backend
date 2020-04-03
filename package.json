@@ -28,6 +28,7 @@
     "mongoose": "^5.9.6",
     "morgan": "^1.10.0",
     "nodemon": "^2.0.2",
+    "redis": "^3.0.2",
     "restify-errors": "^8.0.2",
     "winston": "^3.2.1"
   },

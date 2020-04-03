@@ -5,7 +5,7 @@ import geoTz from 'geo-tz'
 
 import restifyErrors from 'restify-errors'
 import { Location } from '../models/index.js'
-import { logger, busyHours } from '../libs/index.js'
+import { logger, busyHours, redis } from '../libs/index.js'
 import { dump } from '../utils/index.js'
 
 const { Client } = googleMaps
@@ -38,7 +38,7 @@ export default async (req, res) => {
         $geoNear: {
           near: {
             type: 'Point',
-            coordinates: [value.longitude,value.latitude],
+            coordinates: [value.longitude, value.latitude],
           },
           distanceField: 'distance',
           spherical: true,
@@ -59,13 +59,12 @@ export default async (req, res) => {
           time: { $first: '$createdAt' },
         },
       }, {
-        $lookup:
-          {
-            from: 'devices',
-            localField: 'device',
-            foreignField: '_id',
-            as: 'device',
-          },
+        $lookup: {
+          from: 'devices',
+          localField: 'device',
+          foreignField: '_id',
+          as: 'device',
+        },
       },
       {
         $project: {
@@ -84,6 +83,7 @@ export default async (req, res) => {
 
     const timezone = geoTz(value.latitude, value.longitude)[0]
     const dayOfWeek = moment().tz(timezone).isoWeekday() // .format('ddd')
+    const placesMap = {}
     const places = await client
       .placesNearby({
         params: {
@@ -97,20 +97,36 @@ export default async (req, res) => {
         timeout: 1000, // milliseconds
       })
 
-    // console.dir(places.data.results, { depth: 20, colors: true })
+    let placesInCache = await Promise.all(places.data.results.map(place => redis.getAsync(place.place_id)))
 
-    const busyHoursResult = await Promise.all(places.data.results.map(place => client.placeDetails({
+    placesInCache = placesInCache.filter(place => {
+      if (place !== null) {
+        placesMap[place.placeId] = true
+        return true
+      }
+      return false
+    })
+
+    let placesNotInCache = places.data.results.filter(place => !placesMap[place.place_id])
+
+    if (placesInCache.length > 0) {
+      let placesToExclude = await Promise.all(placesNotInCache.map(place => redis.getExcludeAsync(place.place_id)))
+
+      if (placesToExclude.length > 0) {
+        placesNotInCache = placesNotInCache.filter(place => !placesToExclude.find(excludePlaceId => excludePlaceId !== place.place_id))
+      }
+    }
+
+    let fetchedPlaces = await Promise.all(placesNotInCache.map(place => client.placeDetails({
       params: {
         place_id: place.place_id,
         key: GOOGLE_MAPS_API_KEY,
       },
     }).then(async placeInfo => {
-      console.dir(placeInfo.data.result, { depth: 20, colors: true })
-
       const busyHoursResult = await busyHours(placeInfo.data.result.url)
 
       if (!busyHoursResult || !busyHoursResult.week || busyHoursResult.week.length !== 7) {
-        return null
+        return { placeId: placeInfo.data.result.place_id }
       }
 
       return {
@@ -126,12 +142,28 @@ export default async (req, res) => {
     },
     )))
 
+    const placesToExclude = []
+
+    fetchedPlaces = fetchedPlaces.filter(place => {
+      if (!place.busyPercentage) {
+        placesToExclude.push(place.placeId)
+
+        return false
+      }
+
+      return place
+    }).map(dump.dumpPlace)
+
+
+    await Promise.all(placesToExclude.map(placeId => redis.setExcludeAsync(placeId)))
+    await Promise.all(fetchedPlaces.map(place => redis.setAsync(place.placeId, place)))
+
     res.setHeader('Content-Type', 'application/json')
     return res.json({
       users: devicesNearby.map(dump.dumpUserLocation),
-      places: busyHoursResult.filter(Boolean).map(dump.dumpPlace),
+      places: [...fetchedPlaces, ...placesInCache],
     })
-  } catch(err) {
+  } catch (err) {
     logger.error(err)
 
     return res.status(err.statusCode || 502).send(dump.dumpError(err))
