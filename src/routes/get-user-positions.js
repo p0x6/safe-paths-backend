@@ -84,20 +84,30 @@ export default async (req, res) => {
     const timezone = geoTz(value.latitude, value.longitude)[0]
     const dayOfWeek = moment().tz(timezone).isoWeekday() // .format('ddd')
     const placesMap = {}
-    const places = await client
-      .placesNearby({
-        params: {
-          location: {
-            lat: value.latitude,
-            lng: value.longitude,
-          },
-          radius: value.radius,
-          key: GOOGLE_MAPS_API_KEY,
-        },
-        timeout: 1000, // milliseconds
-      })
+    const places = []
+    let nextPageToken = true
 
-    let placesInCache = await Promise.all(places.data.results.map(place => redis.getAsync(place.place_id)))
+    while (nextPageToken) {
+      const placesOnPage = await client
+        .placesNearby({
+          params: {
+            location: {
+              lat: value.latitude,
+              lng: value.longitude,
+            },
+            ... nextPageToken && nextPageToken !== true ? { pagetoken: nextPageToken } : {},
+            radius: value.radius,
+            key: GOOGLE_MAPS_API_KEY,
+          },
+          timeout: 1000, // milliseconds
+        })
+
+      nextPageToken = placesOnPage.data.next_page_token
+
+      places.push(...placesOnPage.data.results)
+    }
+
+    let placesInCache = await Promise.all(places.map(place => redis.getAsync(place.place_id)))
 
     placesInCache = placesInCache.filter(place => {
       if (place !== null) {
@@ -107,7 +117,7 @@ export default async (req, res) => {
       return false
     })
 
-    let placesNotInCache = places.data.results.filter(place => !placesMap[place.place_id])
+    let placesNotInCache = places.filter(place => !placesMap[place.place_id])
 
     if (placesInCache.length > 0) {
       let placesToExclude = await Promise.all(placesNotInCache.map(place => redis.getAsync(`exclude__${place.place_id}`)))
