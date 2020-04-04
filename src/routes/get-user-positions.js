@@ -95,7 +95,7 @@ export default async(req, res) => {
               lat: value.latitude,
               lng: value.longitude,
             },
-            ...nextPageToken && nextPageToken !== true ? { pagetoken: nextPageToken } : {},
+            ...nextPageToken && nextPageToken !== true ? { next_page_token: nextPageToken } : {},
             radius: value.radius,
             key: GOOGLE_MAPS_API_KEY,
           },
