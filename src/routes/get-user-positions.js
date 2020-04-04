@@ -141,7 +141,7 @@ export default async(req, res) => {
         || busyHoursResult.week.length !== 7
         || !busyHoursResult.week[dayOfWeek]
         || !busyHoursResult.week[dayOfWeek].hours
-        || !busyHoursResult.week[dayOfWeek].hours.length === 0
+        || busyHoursResult.week[dayOfWeek].hours.length === 0
       ) {
         return { placeId: placeInfo.data.result.place_id }
       }
