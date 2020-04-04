@@ -16,7 +16,7 @@ const {
 } = process.env
 const client = new Client({})
 
-export default async (req, res) => {
+export default async(req, res) => {
   try {
     const schema = Joi.object().keys({
       latitude: Joi.number().min(-90).max(90).required(),
@@ -33,58 +33,58 @@ export default async (req, res) => {
       throw new InvalidArgumentError(errMsg)
     }
 
-    const devicesNearby = await Location.aggregate([
-      {
-        $geoNear: {
-          near: {
-            type: 'Point',
-            coordinates: [value.longitude, value.latitude],
-          },
-          distanceField: 'distance',
-          spherical: true,
-          maxDistance: value.radius,
-          limit: 100000,
+    const devicesNearby = await Location.aggregate([{
+      $geoNear: {
+        near: {
+          type: 'Point',
+          coordinates: [value.longitude, value.latitude],
         },
-      }, {
-        $match: {
-          createdAt: {
-            $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
-          },
-        },
-      }, {
-        $group: {
-          _id: '$device',
-          device: { $first: '$device' },
-          location: { $first: '$location' },
-          time: { $first: '$createdAt' },
-        },
-      }, {
-        $lookup: {
-          from: 'devices',
-          localField: 'device',
-          foreignField: '_id',
-          as: 'device',
+        distanceField: 'distance',
+        spherical: true,
+        maxDistance: value.radius,
+        limit: 100000,
+      },
+    }, {
+      $match: {
+        createdAt: {
+          $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
         },
       },
-      {
-        $project: {
-          _id: false,
-          uuid: { $arrayElemAt: ['$device.uuid', 0] },
-          location: true,
-          time: { $subtract: ['$time', new Date('1970-01-01')] },
-        },
+    }, {
+      $group: {
+        _id: '$device',
+        device: { $first: '$device' },
+        location: { $first: '$location' },
+        time: { $first: '$createdAt' },
       },
-      {
-        $match: {
-          uuid: { $ne: value.uuid },
-        },
+    }, {
+      $lookup: {
+        from: 'devices',
+        localField: 'device',
+        foreignField: '_id',
+        as: 'device',
       },
+    },
+    {
+      $project: {
+        _id: false,
+        uuid: { $arrayElemAt: ['$device.uuid', 0] },
+        location: true,
+        time: { $subtract: ['$time', new Date('1970-01-01')] },
+      },
+    },
+    {
+      $match: {
+        uuid: { $ne: value.uuid },
+      },
+    },
     ])
 
     const timezone = geoTz(value.latitude, value.longitude)[0]
     const dayOfWeek = moment().tz(timezone).isoWeekday() // .format('ddd')
     const placesMap = {}
     const places = []
+    const placesToExclude = []
     let nextPageToken = true
 
     while (nextPageToken) {
@@ -95,7 +95,7 @@ export default async (req, res) => {
               lat: value.latitude,
               lng: value.longitude,
             },
-            ... nextPageToken && nextPageToken !== true ? { pagetoken: nextPageToken } : {},
+            ...nextPageToken && nextPageToken !== true ? { pagetoken: nextPageToken } : {},
             radius: value.radius,
             key: GOOGLE_MAPS_API_KEY,
           },
@@ -135,43 +135,57 @@ export default async (req, res) => {
     }).then(async placeInfo => {
       const busyHoursResult = await busyHours(placeInfo.data.result.url)
 
-      if (!busyHoursResult || !busyHoursResult.week || busyHoursResult.week.length !== 7) {
+      if (
+        !busyHoursResult
+        || !busyHoursResult.week
+        || busyHoursResult.week.length !== 7
+        || !busyHoursResult.week[dayOfWeek]
+        || !busyHoursResult.week[dayOfWeek].hours
+        || !busyHoursResult.week[dayOfWeek].hours.length === 0
+      ) {
         return { placeId: placeInfo.data.result.place_id }
       }
 
       return {
-        placeId: placeInfo.data.result.place_id,
-        name: placeInfo.data.result.name,
-        address: placeInfo.data.result.address_components.map(v => v.long_name).join(', '),
-        location: {
+        type: 'Feature',
+        geometry: {
           type: 'Point',
           coordinates: [placeInfo.data.result.geometry.location.lng, placeInfo.data.result.geometry.location.lat],
         },
-        busyPercentage: busyHoursResult.week[dayOfWeek].hours,
+        properties: {
+          placeId: placeInfo.data.result.place_id,
+          name: placeInfo.data.result.name,
+          address: placeInfo.data.result.address_components.map(v => v.long_name).join(', '),
+          busyPercentage: busyHoursResult.week[dayOfWeek].hours,
+        },
       }
-    },
-    )))
+    })))
 
-    const placesToExclude = []
+    fetchedPlaces = fetchedPlaces
+      .filter(place => {
+        if (Object.keys(place).length === 1 && !!place.placeId) {
+          placesToExclude.push(place.placeId)
 
-    fetchedPlaces = fetchedPlaces.filter(place => {
-      if (!place.busyPercentage) {
-        placesToExclude.push(place.placeId)
+          return false
+        }
 
-        return false
-      }
-
-      return place
-    }).map(dump.dumpPlace)
-
+        return true
+      })
+      .map(dump.dumpPlace)
 
     await Promise.all(placesToExclude.map(placeId => redis.setAsync(`exclude__${placeId}`, placeId)))
-    await Promise.all(fetchedPlaces.map(place => redis.setAsync(place.placeId, place)))
+    await Promise.all(fetchedPlaces.map(place => redis.setAsync(place.properties.placeId, place)))
 
     res.setHeader('Content-Type', 'application/json')
     return res.json({
-      users: devicesNearby.map(dump.dumpUserLocation),
-      places: [...fetchedPlaces, ...placesInCache],
+      users: {
+        type: 'FeatureCollection',
+        features: devicesNearby.map(dump.dumpUserLocation),
+      },
+      places: {
+        type: 'FeatureCollection',
+        features: [...fetchedPlaces, ...placesInCache],
+      },
     })
   } catch (err) {
     logger.error(err)

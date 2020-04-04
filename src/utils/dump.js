@@ -1,20 +1,26 @@
 export const dumpUserLocation = userLocation => ({
-  location: {
-    type: userLocation.location.type,
-    coordinates: userLocation.location.coordinates,
+  type: 'Feature',
+  geometry: {
+    type: 'Point',
+    coordinates: [userLocation.location.coordinates[0], userLocation.location.coordinates[1]],
   },
-  time: userLocation.time,
+  properties: {
+    time: userLocation.time,
+  },
 })
 
 export const dumpPlace = place => ({
-  placeId: place.placeId,
-  name: place.name,
-  address: place.address,
-  location: {
-    type: place.location.type,
-    coordinates: [place.location.coordinates[0], place.location.coordinates[1]],
+  type: place.type,
+  geometry: {
+    type: place.geometry.type,
+    coordinates: [place.geometry.coordinates[0], place.geometry.coordinates[1]],
   },
-  busyPercentage: place.busyPercentage,
+  properties: {
+    placeId: place.properties.placeId,
+    name: place.properties.name,
+    address: place.properties.address,
+    busyPercentage: place.properties.busyPercentage,
+  },
 })
 
 export const dumpIntersection = intersection => ({
