@@ -96,7 +96,7 @@ export default async(req, res) => {
               lng: value.longitude,
             },
             // type: 'establishment',
-            opennow: false,
+            // opennow: false,
             ...nextPageToken && nextPageToken !== true ? { next_page_token: nextPageToken } : {},
             radius: value.radius,
             key: GOOGLE_MAPS_API_KEY,
@@ -106,8 +106,7 @@ export default async(req, res) => {
 
       nextPageToken = placesOnPage.data.next_page_token
 
-      console.dir({ nextPageToken }, { depth: 20, colors: true })
-
+      // console.dir({ nextPageToken }, { depth: 20, colors: true })
 
       places.push(...placesOnPage.data.results)
     }
