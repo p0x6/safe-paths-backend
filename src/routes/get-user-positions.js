@@ -95,6 +95,7 @@ export default async(req, res) => {
               lat: value.latitude,
               lng: value.longitude,
             },
+            opennow: true,
             ...nextPageToken && nextPageToken !== true ? { next_page_token: nextPageToken } : {},
             radius: value.radius,
             key: GOOGLE_MAPS_API_KEY,
@@ -102,7 +103,7 @@ export default async(req, res) => {
           timeout: 1000, // milliseconds
         })
 
-      nextPageToken = false//placesOnPage.data.next_page_token
+      nextPageToken = placesOnPage.data.next_page_token
 
       console.dir({ nextPageToken }, { depth: 20, colors: true })
 
