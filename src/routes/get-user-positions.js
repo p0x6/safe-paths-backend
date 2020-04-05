@@ -16,7 +16,17 @@ const {
 } = process.env
 const client = new Client({})
 
-export default async(req, res) => {
+const weekDays = {
+  'Sun': 0,
+  'Mon': 1,
+  'Tue': 2,
+  'Wed': 3,
+  'Thu': 4,
+  'Fri': 5,
+  'Sat': 6,
+}
+
+export default async (req, res) => {
   try {
     const schema = Joi.object().keys({
       latitude: Joi.number().min(-90).max(90).required(),
@@ -82,7 +92,7 @@ export default async(req, res) => {
     ])
 
     const timezone = geoTz(value.latitude, value.longitude)[0]
-    const dayOfWeek = moment().tz(timezone).isoWeekday() // .format('ddd')
+    const dayOfWeek = weekDays[moment().tz(timezone).format('ddd')]
     const placesMap = {}
     const places = []
     const placesToExclude = []
@@ -106,7 +116,6 @@ export default async(req, res) => {
         })
 
       nextPageToken = placesOnPage.data.next_page_token
-
       places.push(...placesOnPage.data.results)
     }
 
@@ -114,7 +123,7 @@ export default async(req, res) => {
 
     placesInCache = placesInCache.filter(place => {
       if (place !== null) {
-        placesMap[place.placeId] = true
+        placesMap[place.properties.placeId] = true
         return true
       }
       return false
@@ -122,11 +131,11 @@ export default async(req, res) => {
 
     let placesNotInCache = places.filter(place => !placesMap[place.place_id])
 
-    if (placesInCache.length > 0) {
+    if (placesInCache.length !== places.length) {
       let placesToExclude = await Promise.all(placesNotInCache.map(place => redis.getAsync(`exclude__${place.place_id}`)))
 
       if (placesToExclude.length > 0) {
-        placesNotInCache = placesNotInCache.filter(place => !placesToExclude.find(excludePlaceId => excludePlaceId !== place.place_id))
+        placesNotInCache = placesNotInCache.filter(place => !placesToExclude.find(excludePlaceId => excludePlaceId === place.place_id))
       }
     }
 
@@ -136,7 +145,7 @@ export default async(req, res) => {
         key: GOOGLE_MAPS_API_KEY,
       },
     }).then(async placeInfo => {
-      if (placeInfo.data.error_message.length) {
+      if (placeInfo.data.error_message && placeInfo.data.error_message.length) {
         throw new Error(placeInfo.data.error_message)
       }
 
