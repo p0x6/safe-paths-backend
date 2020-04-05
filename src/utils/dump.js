@@ -28,4 +28,8 @@ export const dumpIntersection = intersection => ({
   date: intersection.date,
 })
 
-export const dumpError = () => ({})
+export const dumpError = error => ({
+  message: error.message,
+  status: error.statusCode || 502,
+  code: error.body && error.body.code ? error.body.code : 'Error',
+})

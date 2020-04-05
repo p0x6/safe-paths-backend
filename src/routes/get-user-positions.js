@@ -22,6 +22,7 @@ export default async(req, res) => {
       latitude: Joi.number().min(-90).max(90).required(),
       longitude: Joi.number().min(-180).max(180).required(),
       radius: Joi.number().required(),
+      placeType: Joi.string(),
       uuid: Joi.string().required(),
     })
 
@@ -95,8 +96,8 @@ export default async(req, res) => {
               lat: value.latitude,
               lng: value.longitude,
             },
-            // type: 'establishment',
-            // opennow: false,
+            opennow: true,
+            ...value.placeType ? { type: value.placeType } : {},
             ...nextPageToken && nextPageToken !== true ? { next_page_token: nextPageToken } : {},
             radius: value.radius,
             key: GOOGLE_MAPS_API_KEY,
@@ -105,8 +106,6 @@ export default async(req, res) => {
         })
 
       nextPageToken = placesOnPage.data.next_page_token
-
-      // console.dir({ nextPageToken }, { depth: 20, colors: true })
 
       places.push(...placesOnPage.data.results)
     }
@@ -137,6 +136,10 @@ export default async(req, res) => {
         key: GOOGLE_MAPS_API_KEY,
       },
     }).then(async placeInfo => {
+      if (placeInfo.data.error_message.length) {
+        throw new Error(placeInfo.data.error_message)
+      }
+
       const busyHoursResult = await busyHours(placeInfo.data.result.url)
 
       if (
