@@ -29,6 +29,12 @@ export default async (req, res) => {
     const intersectedUUID = {}
     const intersectionResult = []
 
+    for(let i=0;i<7;i++) {
+      const date = moment().subtract(i, 'days').format('YYYY-MM-DD')
+      intersectedUUID[date] = []
+      intersectionResult.push({ date, count: 0 })
+    }
+
     await Location.aggregate([{
       $match: {
         createdAt: {
@@ -61,9 +67,6 @@ export default async (req, res) => {
       .exec()
       .eachAsync(async doc => {
         const date = moment(doc.createdAt).format('YYYY-MM-DD')
-        if (!intersectedUUID[date]) {
-          intersectedUUID[date] = []
-        }
 
         const intersected = await Location.aggregate([
           {
