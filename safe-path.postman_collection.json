@@ -1,0 +1,144 @@
+{
+	"info": {
+		"_postman_id": "6970b498-d304-4aa0-8b86-0d221b4271bf",
+		"name": "safe-path",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "save-my-location",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"uuid\": \"1233424354\",\n\t\"coordinates\": {\n\t\t\"longitude\": \"1\",\n\t\t\"latitude\": \"2\"\n\t}\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/save-my-location",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"save-my-location"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-intersection",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/get-intersection?uuid=1f834ee7-7165-4566-9ded-a60b87cbc1f7",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"get-intersection"
+					],
+					"query": [
+						{
+							"key": "uuid",
+							"value": "1f834ee7-7165-4566-9ded-a60b87cbc1f7"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-user-positions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/get-user-positions?uuid=520a03ce-3561-4be5-ae3b-27beb9b096f2&longitude=30.462979&radius=1000&latitude=50.518102",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"get-user-positions"
+					],
+					"query": [
+						{
+							"key": "uuid",
+							"value": "520a03ce-3561-4be5-ae3b-27beb9b096f2"
+						},
+						{
+							"key": "longitude",
+							"value": "30.462979"
+						},
+						{
+							"key": "radius",
+							"value": "1000"
+						},
+						{
+							"key": "latitude",
+							"value": "50.518102"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-places",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/places?radius=1000&latitude=50.518102&placeType=spaaa&longitude=30.462979",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"places"
+					],
+					"query": [
+						{
+							"key": "radius",
+							"value": "1000"
+						},
+						{
+							"key": "latitude",
+							"value": "50.518102"
+						},
+						{
+							"key": "placeType",
+							"value": "spaaa"
+						},
+						{
+							"key": "longitude",
+							"value": "30.462979"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
