@@ -32,7 +32,7 @@ export default async (req, res) => {
       latitude: Joi.number().min(-90).max(90).required(),
       longitude: Joi.number().min(-180).max(180).required(),
       radius: Joi.number().required(),
-      placeType: Joi.string(),
+      placeType: Joi.string().required(),
       uuid: Joi.string().required(),
     })
 
