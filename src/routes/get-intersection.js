@@ -37,9 +37,15 @@ export default async (req, res) => {
 
     await Location.aggregate([{
       $match: {
-        createdAt: {
-          $gt: moment().subtract(INTERSECTION_PAST_DAYS, 'days').toDate(),
-        },
+        $and: [{
+          uuid: {
+            $eq: value.uuid,
+          },
+        }, {
+          createdAt: {
+            $gt: moment().subtract(INTERSECTION_PAST_DAYS, 'days').toDate(),
+          },
+        }],
       },
     }, {
       $lookup:
@@ -55,12 +61,6 @@ export default async (req, res) => {
         uuid: { $arrayElemAt: ['$device.uuid', 0] },
         location: true,
         createdAt: true,
-      },
-    }, {
-      $match: {
-        uuid: {
-          $eq: value.uuid,
-        },
       },
     }])
       .cursor({ batchSize: 10000 })
