@@ -1,14 +1,11 @@
 import lineOffset from '@turf/line-offset'
+import buildLinestring from './build-linestring.js'
 
 export default waypoints => {
-  const geojson = {
-    type: 'LineString' ,
-    coordinates: waypoints.map(waypoint => [waypoint.position.longitude, waypoint.position.latitude]),
-  }
+  const linestring = buildLinestring(waypoints)
 
-
-  const line1 = lineOffset(geojson, 5, { units: 'meters' }).geometry.coordinates
-  const line2 = lineOffset(geojson, -5, { units: 'meters' }).geometry.coordinates.reverse()
+  const line1 = lineOffset(linestring, 5, { units: 'meters' }).geometry.coordinates
+  const line2 = lineOffset(linestring, -5, { units: 'meters' }).geometry.coordinates.reverse()
 
   return {
     type: 'Polygon',

@@ -4,7 +4,7 @@ import simplify from '@turf/simplify'
 import moment from 'moment-timezone'
 import restifyErrors from 'restify-errors'
 import { logger, here } from '../libs/index.js'
-import { dump, buildPolygon } from '../utils/index.js'
+import { dump, buildPolygon, buildLinestring } from '../utils/index.js'
 import { Location } from '../models/index.js'
 
 const { InvalidArgumentError } = restifyErrors
@@ -27,6 +27,7 @@ export default async (req, res) => {
       throw new InvalidArgumentError(errMsg)
     }
 
+    let routeLinestring = {}
     const avoidPoints = []
     let routeSatisfies = false
     let loop =0
@@ -38,19 +39,22 @@ export default async (req, res) => {
         avoidPoints,
       )
 
+      routeLinestring = buildLinestring(response.route[0].leg[0].maneuver)
       const polygon = buildPolygon(response.route[0].leg[0].maneuver)
 
-      console.dir({ polygon }, { depth: 20, colors: true })
+      console.log('##########################################')
+      console.log(JSON.stringify(polygon, null, 4))
+      console.log('##########################################')
 
 
       const devicesInPolygon = await Location.aggregate([
-        // {
-        //   $match: {
-        //     createdAt: {
-        //       $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
-        //     },
-        //   },
-        // },
+        {
+          $match: {
+            createdAt: {
+              $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
+            },
+          },
+        },
         {
           $match: {
             location: {
@@ -67,7 +71,7 @@ export default async (req, res) => {
         const areas = devicesInPolygon
           .map(point =>
             simplify.default(
-              circle.default(point.location.coordinates, 10, { units: 'meters' }),
+              circle.default(point.location.coordinates, 30, { units: 'meters' }),
               {
                 tolerance: 1,
                 highQuality: true,
@@ -77,6 +81,8 @@ export default async (req, res) => {
           )
 
         areas.forEach(area => {
+          console.dir({ area }, { depth: 20, colors: true })
+
           avoidPoints.push([area[0].reverse(), area[2].reverse()])
         })
       } else {
@@ -89,7 +95,7 @@ export default async (req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/json')
-    return res.json({})
+    return res.json(dump.dumpLinestring(routeLinestring))
   } catch (err) {
     logger.error(err)
 

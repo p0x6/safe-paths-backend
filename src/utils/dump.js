@@ -33,3 +33,8 @@ export const dumpError = error => ({
   status: error.statusCode || 502,
   code: error.body && error.body.code ? error.body.code : 'Error',
 })
+
+export const dumpLinestring = linestring => ({
+  type: 'LineString',
+  coordinates: linestring.coordinates || [],
+})
