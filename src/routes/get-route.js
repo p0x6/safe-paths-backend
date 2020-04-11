@@ -1,6 +1,7 @@
 import Joi from '@hapi/joi'
 import circle from '@turf/circle'
 import simplify from '@turf/simplify'
+import rotate from '@turf/transform-rotate'
 import moment from 'moment-timezone'
 import restifyErrors from 'restify-errors'
 import { logger, here } from '../libs/index.js'
@@ -26,36 +27,28 @@ export default async (req, res) => {
 
       throw new InvalidArgumentError(errMsg)
     }
-
-    let routeLinestring = {}
+    const calculatedRoutes = []
     const avoidPoints = []
-    let routeSatisfies = false
-    let loop =0
+    let isRouteSatisfies = false
 
-    while(!routeSatisfies && loop < 2) {
-      const { response } = await here(
+    while(!isRouteSatisfies) {
+      const { response: { route: routes } } = await here(
         [value.startLatitude, value.startLongitude],
         [value.endLatitude, value.endLongitude],
         avoidPoints,
       )
 
-      routeLinestring = buildLinestring(response.route[0].leg[0].maneuver)
-      const polygon = buildPolygon(response.route[0].leg[0].maneuver)
+      const results = await Promise.all(routes.map(async route => {
+        const routeLinestring = buildLinestring(route.leg[0].maneuver)
+        const polygon = buildPolygon(route.leg[0].maneuver)
 
-      console.log('##########################################')
-      console.log(JSON.stringify(polygon, null, 4))
-      console.log('##########################################')
-
-
-      const devicesInPolygon = await Location.aggregate([
-        {
+        const devicesInPolygon = await Location.aggregate([{
           $match: {
             createdAt: {
               $gt: moment().subtract(parseInt(INTERSECTION_DELTA_MINUTES, 10), 'minutes').toDate(),
             },
           },
-        },
-        {
+        }, {
           $match: {
             location: {
               $geoWithin: {
@@ -65,37 +58,62 @@ export default async (req, res) => {
           },
         }])
 
-      if (devicesInPolygon.length > 0) {
-        routeSatisfies = false
+        if (devicesInPolygon.length > 0) {
+          const areas = devicesInPolygon
+            .map(point =>
+              rotate(
+                simplify.default(
+                  circle.default(point.location.coordinates, 30, { units: 'meters' }),
+                  {
+                    tolerance: 1,
+                    highQuality: true,
+                    mutate: true,
+                  },
+                ),
+                45,
+              ).geometry.coordinates[0],
+            )
 
-        const areas = devicesInPolygon
-          .map(point =>
-            simplify.default(
-              circle.default(point.location.coordinates, 30, { units: 'meters' }),
-              {
-                tolerance: 1,
-                highQuality: true,
-                mutate: true,
-              },
-            ).geometry.coordinates[0],
+          areas.forEach(
+            area => avoidPoints.push([area[0].reverse(), area[2].reverse()]),
           )
+        }
 
-        areas.forEach(area => {
-          console.dir({ area }, { depth: 20, colors: true })
+        return {
+          routeLinestring,
+          travelTime: route.summary.travelTime,
+          distance: route.summary.distance,
+          intersections: devicesInPolygon.length,
+        }
+      }))
 
-          avoidPoints.push([area[0].reverse(), area[2].reverse()])
-        })
+      const routeWithoutIntersection = results.find(r => r.intersections === 0)
+      if (routeWithoutIntersection) {
+        isRouteSatisfies = true
+
+        calculatedRoutes.push(...results)
       } else {
-        routeSatisfies = true
+        if (calculatedRoutes.length > 0) {
+          const filteredRoutesByTime = results.filter(r => r.travelTime < calculatedRoutes[0].travelTime * 1.5)
+          if (filteredRoutesByTime.length !== results.length) {
+            calculatedRoutes.push(...filteredRoutesByTime)
+            isRouteSatisfies = true
+          }
+        } else {
+          calculatedRoutes.push(...results)
+          isRouteSatisfies = false
+        }
       }
-
-      loop++
-
-      console.dir({ avoidPoints }, { depth: 20, colors: true })
     }
 
+    // console.dir(calculatedRoutes, { depth: 20, colors: true })
+    const routeWithLeastIntersections = calculatedRoutes.reduce(
+      (acc, route) => route.intersections < acc.intersections ? route : acc,
+      calculatedRoutes[0],
+    )
+
     res.setHeader('Content-Type', 'application/json')
-    return res.json(dump.dumpLinestring(routeLinestring))
+    return res.json(dump.dumpLinestring(routeWithLeastIntersections.routeLinestring))
   } catch (err) {
     logger.error(err)
 

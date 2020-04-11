@@ -23,6 +23,7 @@
     "@turf/circle": "^6.0.1",
     "@turf/line-offset": "^5.1.5",
     "@turf/simplify": "^5.1.5",
+    "@turf/transform-rotate": "^5.1.5",
     "body-parser": "^1.19.0",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
