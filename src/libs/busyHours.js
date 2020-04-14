@@ -71,13 +71,8 @@ const fetchHtml = async(url) => {
 }
 
 export default async placeUrl => {
-  console.time(`LOADING-${placeUrl}`)
   const html = await fetchHtml(placeUrl)
-  console.timeEnd(`LOADING-${placeUrl}`)
-
-  console.time(`PARSING-${placeUrl}`)
   const busyHours = processHtml(html)
-  console.timeEnd(`PARSING-${placeUrl}`)
 
   return busyHours
 }

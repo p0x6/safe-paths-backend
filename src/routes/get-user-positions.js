@@ -1,39 +1,32 @@
 import Joi from '@hapi/joi'
 import moment from 'moment-timezone'
-import restifyErrors from 'restify-errors'
 import { Location } from '../models/index.js'
 import { logger } from '../libs/index.js'
-import { dump } from '../utils/index.js'
+import { dump, validator } from '../utils/index.js'
 
-const { InvalidArgumentError } = restifyErrors
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 export default async (req, res) => {
   try {
-    const schema = Joi.object().keys({
-      latitude: Joi.number().min(-90).max(90).required(),
-      longitude: Joi.number().min(-180).max(180).required(),
-      radius: Joi.number().required(),
-      uuid: Joi.string().required(),
-    })
-
-    const { error, value } = schema.validate(req.query)
-
-    if (error) {
-      const errMsg = error.details.map((detail) => detail.message).join('. ')
-
-      throw new InvalidArgumentError(errMsg)
-    }
+    const data = validator.validate(
+      req.query,
+      Joi.object().keys({
+        latitude: Joi.number().min(-90).max(90).required(),
+        longitude: Joi.number().min(-180).max(180).required(),
+        radius: Joi.number().required(),
+        uuid: Joi.string().required(),
+      }),
+    )
 
     const devicesNearby = await Location.aggregate([{
       $geoNear: {
         near: {
           type: 'Point',
-          coordinates: [value.longitude, value.latitude],
+          coordinates: [data.longitude, data.latitude],
         },
         distanceField: 'distance',
         spherical: true,
-        maxDistance: value.radius,
+        maxDistance: data.radius,
         limit: 100000,
       },
     }, {
@@ -65,7 +58,7 @@ export default async (req, res) => {
       },
     }, {
       $match: {
-        uuid: { $ne: value.uuid },
+        uuid: { $ne: data.uuid },
       },
     }])
 

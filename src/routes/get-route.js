@@ -3,38 +3,32 @@ import circle from '@turf/circle'
 import simplify from '@turf/simplify'
 import rotate from '@turf/transform-rotate'
 import moment from 'moment-timezone'
-import restifyErrors from 'restify-errors'
 import { logger, here } from '../libs/index.js'
-import { dump, buildPolygon, buildLinestring } from '../utils/index.js'
+import { dump, buildPolygon, buildLinestring, validator } from '../utils/index.js'
 import { Location } from '../models/index.js'
 
-const { InvalidArgumentError } = restifyErrors
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 export default async (req, res) => {
   try {
-    const schema = Joi.object().keys({
-      startLatitude: Joi.number().min(-90).max(90).required(),
-      startLongitude: Joi.number().min(-180).max(180).required(),
-      endLatitude: Joi.number().min(-90).max(90).required(),
-      endLongitude: Joi.number().min(-180).max(180).required(),
-    })
+    const data = validator.validate(
+      req.query,
+      Joi.object().keys({
+        startLatitude: Joi.number().min(-90).max(90).required(),
+        startLongitude: Joi.number().min(-180).max(180).required(),
+        endLatitude: Joi.number().min(-90).max(90).required(),
+        endLongitude: Joi.number().min(-180).max(180).required(),
+      }),
+    )
 
-    const { error, value } = schema.validate(req.query)
-
-    if (error) {
-      const errMsg = error.details.map((detail) => detail.message).join('. ')
-
-      throw new InvalidArgumentError(errMsg)
-    }
     const calculatedRoutes = []
     const avoidPoints = []
     let isRouteSatisfies = false
 
     while(!isRouteSatisfies) {
       const { response: { route: routes } } = await here(
-        [value.startLatitude, value.startLongitude],
-        [value.endLatitude, value.endLongitude],
+        [data.startLatitude, data.startLongitude],
+        [data.endLatitude, data.endLongitude],
         avoidPoints,
       )
 

@@ -9,8 +9,8 @@
     "npm": "6.14.x"
   },
   "scripts": {
-    "start": "node --experimental-modules ./src/index.js",
-    "dev": "nodemon --experimental-modules ./src/index.js",
+    "start": "env NODE_ENV=production node --experimental-modules ./src/index.js",
+    "dev": "env NODE_ENV=development nodemon --experimental-modules ./src/index.js",
     "test": "env NODE_ENV=test mocha --experimental-modules --exit __tests__/**/*.spec.js",
     "lint": "eslint \"src/**/*.js\" --config .eslintrc",
     "mock": "node --experimental-modules ./mock/send-locations.js"

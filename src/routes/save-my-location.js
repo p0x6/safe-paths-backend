@@ -1,36 +1,28 @@
 import Joi from '@hapi/joi'
-import restifyErrors from 'restify-errors'
 import { Location, Device } from '../models/index.js'
 import { logger } from '../libs/index.js'
-import { dump } from '../utils/index.js'
-
-const { InvalidArgumentError } = restifyErrors
+import { dump, validator } from '../utils/index.js'
 
 export default async (req, res) => {
   try {
-    const schema = Joi.object().keys({
-      uuid: Joi.string().required(),
-      coordinates: Joi.object().keys({
-        longitude: Joi.number().min(-180).max(180).required(),
-        latitude: Joi.number().min(-90).max(90).required(),
+    const data = validator.validate(
+      req.body,
+      Joi.object().keys({
+        uuid: Joi.string().required(),
+        coordinates: Joi.object().keys({
+          longitude: Joi.number().min(-180).max(180).required(),
+          latitude: Joi.number().min(-90).max(90).required(),
+        }),
       }),
-    })
-
-    const { error, value } = schema.validate(req.body)
-
-    if (error) {
-      const errMsg = error.details.map((detail) => detail.message).join('. ')
-
-      throw new InvalidArgumentError(errMsg)
-    }
+    )
 
     let device = await Device.findOne({
-      uuid: value.uuid,
+      uuid: data.uuid,
     })
 
     if (!device) {
       device = await new Device({
-        uuid: value.uuid,
+        uuid: data.uuid,
       }).save()
     }
 
@@ -39,8 +31,8 @@ export default async (req, res) => {
       location: {
         type: 'Point',
         coordinates: [
-          value.coordinates.longitude,
-          value.coordinates.latitude,
+          data.coordinates.longitude,
+          data.coordinates.latitude,
         ],
       },
     }).save()
