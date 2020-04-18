@@ -138,6 +138,63 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "get route",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/places?startLatitude=30.462979&startLongitude=50.518102&endLatitude=30.468664&endLongitude=50.517698",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"places"
+					],
+					"query": [
+						{
+							"key": "startLatitude",
+							"value": "30.462979"
+						},
+						{
+							"key": "startLongitude",
+							"value": "50.518102"
+						},
+						{
+							"key": "endLatitude",
+							"value": "30.468664"
+						},
+						{
+							"key": "endLongitude",
+							"value": "50.517698"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get busy times",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SAFE_PATH_API_BASE_URL}}/api/v0/busy-times/749460162",
+					"host": [
+						"{{SAFE_PATH_API_BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v0",
+						"busy-times",
+						"749460162"
+					]
+				}
+			},
+			"response": []
 		}
 	],
 	"protocolProfileBehavior": {}
