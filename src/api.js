@@ -6,6 +6,7 @@ import {
   places,
   cors,
   getRoute,
+  getBusyTimes,
 } from './routes/index.js'
 
 const { Router } = express
@@ -18,5 +19,6 @@ router.route('/get-intersection').get(getIntersection)
 router.route('/save-my-location').post(saveMyLocation)
 router.route('/places').get(places)
 router.route('/get-route').get(getRoute)
+router.route('/busy-times/:placeId').get(getBusyTimes)
 
 export default router
