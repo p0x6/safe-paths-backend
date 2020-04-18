@@ -8,24 +8,46 @@ import { Location } from '../models/index.js'
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 const timeRanges = ['9am - 12pm', '12pm - 3pm', '3pm - 6pm', '6pm - 9pm']
+const dayOfWeeks = {
+  1: 7,
+  2: 1,
+  3: 2,
+  4: 3,
+  5: 4,
+  6: 5,
+  7: 6,
+}
 
-const fillMissingTimeRanges = busyHours => busyHours
-  .map(busyHour => {
-    busyHour.timeRange = busyHour.timeRange || []
+const countCertainDays = (day, startDate, endDate) => {
+  const ndays = 1 + Math.round((endDate-startDate)/(24*3600*1000))
 
-    busyHour.timeRange.sort(
-      (a, b) => timeRanges.findIndex(r => r === a.timeRange) > timeRanges.findIndex(r => r === b.timeRange) ? 1 : -1,
-    )
+  return Math.floor((ndays + (startDate.getDay()+6-day) % 7) / 7)
+}
 
-    timeRanges.forEach((range, index) => {
-      if (!busyHour.timeRange[index] || busyHour.timeRange[index].timeRange !== range) {
-        busyHour.timeRange.splice(index, 0, { timeRange: range, count: 0 })
-      }
+const fillMissingTimeRanges = busyHours => {
+  const startDate = moment().subtract(6, 'month').toDate()
+  const endDate = moment().toDate()
+
+  return busyHours
+    .map(busyHour => {
+      busyHour.timeRange = busyHour.timeRange || []
+
+      busyHour.timeRange.sort(
+        (a, b) => timeRanges.findIndex(r => r === a.timeRange) > timeRanges.findIndex(r => r === b.timeRange) ? 1 : -1,
+      )
+
+      timeRanges.forEach((range, index) => {
+        if (!busyHour.timeRange[index] || busyHour.timeRange[index].timeRange !== range) {
+          busyHour.timeRange.splice(index, 0, { timeRange: range, count: 0 })
+        } else {
+          busyHour.timeRange[index].count = busyHour.timeRange[index].count / countCertainDays(dayOfWeeks[busyHour.dayOfWeek], startDate, endDate)
+        }
+      })
+
+      return busyHour
     })
-
-    return busyHour
-  })
-  .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+}
 
 export default async (req, res) => {
   res.setHeader('Content-Type', 'application/json')
