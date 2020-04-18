@@ -10,6 +10,7 @@ import { Location } from '../models/index.js'
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 export default async (req, res) => {
+  res.setHeader('Content-Type', 'application/json')
   try {
     const data = validator.validate(
       req.query,
@@ -106,7 +107,6 @@ export default async (req, res) => {
       calculatedRoutes[0],
     )
 
-    res.setHeader('Content-Type', 'application/json')
     return res.json(dump.dumpLinestring(routeWithLeastIntersections.routeLinestring))
   } catch (err) {
     logger.error(err)
