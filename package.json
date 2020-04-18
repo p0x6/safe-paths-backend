@@ -20,6 +20,7 @@
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^2.4.2",
     "@hapi/joi": "^17.1.1",
+    "@turf/area": "^6.0.1",
     "@turf/circle": "^6.0.1",
     "@turf/line-offset": "^5.1.5",
     "@turf/simplify": "^5.1.5",

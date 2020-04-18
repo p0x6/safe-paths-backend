@@ -1,4 +1,5 @@
 import geoTz from 'geo-tz'
+import area from '@turf/area'
 import moment from 'moment-timezone'
 import axios from 'axios'
 import { logger } from '../libs/index.js'
@@ -8,6 +9,9 @@ import { Location } from '../models/index.js'
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 const timeRanges = ['9am - 12pm', '12pm - 3pm', '3pm - 6pm', '6pm - 9pm']
+
+// JS      Monday-1 Tuesday-2 ... Sunday-7
+// Mongodb Sunday-1 Monday-2 ... Saturday-7
 const dayOfWeeks = {
   1: 7,
   2: 1,
@@ -18,15 +22,23 @@ const dayOfWeeks = {
   7: 6,
 }
 
+const theoreticalPeopleDensity = area => area / 13.378
+
 const countCertainDays = (day, startDate, endDate) => {
   const ndays = 1 + Math.round((endDate-startDate)/(24*3600*1000))
 
   return Math.floor((ndays + (startDate.getDay()+6-day) % 7) / 7)
 }
 
-const fillMissingTimeRanges = busyHours => {
+const fillMissingTimeRanges = (busyHours, placeArea) => {
   const startDate = moment().subtract(6, 'month').toDate()
   const endDate = moment().toDate()
+
+  for (let i=1;i<8;i++) {
+    if(!busyHours.find(b => b.dayOfWeek === i)) {
+      busyHours.push({ dayOfWeek: i,timeRange: [] })
+    }
+  }
 
   return busyHours
     .map(busyHour => {
@@ -38,9 +50,9 @@ const fillMissingTimeRanges = busyHours => {
 
       timeRanges.forEach((range, index) => {
         if (!busyHour.timeRange[index] || busyHour.timeRange[index].timeRange !== range) {
-          busyHour.timeRange.splice(index, 0, { timeRange: range, count: 0 })
+          busyHour.timeRange.splice(index, 0, { timeRange: range, load: 0 })
         } else {
-          busyHour.timeRange[index].count = busyHour.timeRange[index].count / countCertainDays(dayOfWeeks[busyHour.dayOfWeek], startDate, endDate)
+          busyHour.timeRange[index].load = busyHour.timeRange[index].load / countCertainDays(dayOfWeeks[busyHour.dayOfWeek], startDate, endDate) / theoreticalPeopleDensity(placeArea)
         }
       })
 
@@ -68,6 +80,7 @@ export default async (req, res) => {
       })
 
     const timezone = geoTz(placePolygon.coordinates[0][0][1], placePolygon.coordinates[0][0][0])[0]
+    const placeArea = area.default(placePolygon)
 
     const busyHours = await Location.aggregate([{
       $match: {
@@ -109,7 +122,7 @@ export default async (req, res) => {
           dayOfWeek: '$dayOfWeek',
           timeRange: '$timeRange',
         },
-        count: { $sum: 1 },
+        load: { $sum: 1 },
       },
     }, {
       $match: {
@@ -118,7 +131,7 @@ export default async (req, res) => {
     }, {
       $group: {
         _id: '$_id.dayOfWeek',
-        timeRange: { $push: { timeRange: '$_id.timeRange', count: '$count' } },
+        timeRange: { $push: { timeRange: '$_id.timeRange', load: '$load' } },
       },
     }, {
       $project: {
@@ -128,7 +141,7 @@ export default async (req, res) => {
       },
     }])
 
-    const [{ count: devicesAtPlaceNow }] = await Location.aggregate([{
+    const [{ count: devicesAtPlaceNow = 0 } = { load: 0 }] = await Location.aggregate([{
       $match: {
         $and: [{
           createdAt: {
@@ -160,7 +173,8 @@ export default async (req, res) => {
 
     return res.json({
       devicesAtPlaceNow,
-      busyHours: fillMissingTimeRanges(busyHours),
+      densityNow: devicesAtPlaceNow / theoreticalPeopleDensity(placeArea),
+      busyHours: fillMissingTimeRanges(busyHours, placeArea),
     })
   } catch (err) {
     logger.error(err)
