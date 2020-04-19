@@ -1,9 +1,8 @@
 import Joi from '@hapi/joi'
-import circle from '@turf/circle'
-import simplify from '@turf/simplify'
+import buffer from '@turf/buffer'
 import moment from 'moment-timezone'
 import { logger, openroute } from '../libs/index.js'
-import { dump, buildPolygon, validator } from '../utils/index.js'
+import { dump, validator } from '../utils/index.js'
 import { Location } from '../models/index.js'
 
 const { INTERSECTION_DELTA_MINUTES } = process.env
@@ -37,7 +36,7 @@ export default async (req, res) => {
 
       const results = await Promise.all(routes.map(async route => {
         const routeLinestring = route.geometry
-        const polygon = buildPolygon(route.geometry)
+        const polygon = buffer(route.geometry, 5, { units: 'meters' }).geometry
 
         const devicesInPolygon = await Location.aggregate([{
           $match: {
@@ -59,17 +58,12 @@ export default async (req, res) => {
           devicesInPolygon
             .forEach(point =>
               avoidPolygons.push(
-                simplify.default(
-                  circle.default(
-                    point.location.coordinates,
-                    30,
-                    { units: 'meters' },
-                  ),
-                  {
-                    tolerance: 1,
-                    highQuality: true,
-                    mutate: true,
-                  },
+                buffer.default({
+                  type: 'Point',
+                  coordinates: point.location.coordinates,
+                },
+                30,
+                { units: 'meters' },
                 ).geometry,
               ),
             )

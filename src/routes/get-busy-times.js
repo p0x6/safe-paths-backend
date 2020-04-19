@@ -2,10 +2,12 @@ import geoTz from 'geo-tz'
 import area from '@turf/area'
 import moment from 'moment-timezone'
 import axios from 'axios'
+import restifyErrors from 'restify-errors'
 import { logger } from '../libs/index.js'
 import { dump } from '../utils/index.js'
 import { Location } from '../models/index.js'
 
+const { NotFoundError } = restifyErrors
 const { INTERSECTION_DELTA_MINUTES } = process.env
 
 const timeRanges = ['9am - 12pm', '12pm - 3pm', '3pm - 6pm', '6pm - 9pm']
@@ -70,6 +72,13 @@ export default async (req, res) => {
       method: 'GET',
       url: `http://overpass-api.de/api/interpreter?data=[out:json];way(${placeId});out geom;`,
     })
+
+    // console.dir({ data }, { depth: 20, colors: true })
+
+    if (data.elements.length === 0) {
+      throw new NotFoundError(`Place with id of '${placeId}' not found`)
+    }
+
     const placePolygon = data.elements[0].geometry
       .reduce((polygon, coordinates) => {
         polygon.coordinates[0].push([coordinates.lon, coordinates.lat])
