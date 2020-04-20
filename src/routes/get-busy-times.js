@@ -68,6 +68,7 @@ export default async (req, res) => {
       if (
         openRoutePlaces.features
         && openRoutePlaces.features.find(feature => /^way\/\d+/.test(feature.properties.id))
+        && isPointInPolygon.default(openRoutePlaces.features.find(feature => /^way\/\d+/.test(feature.properties.id)).geometry, placePolygon)
       ) {
         const feature = openRoutePlaces.features.find(feature => /^way\/\d+/.test(feature.properties.id))
 
