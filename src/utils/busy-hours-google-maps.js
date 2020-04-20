@@ -34,24 +34,9 @@ const weekDays = {
   'Sat': 6,
 }
 
-export default async (name, address, latitude, longitude) => {
+export default async placeId => {
   let busyHours = false
-  const { data: { predictions: [{ place_id: placeId } = { place_id: false }] } } = await client
-    .placeAutocomplete({
-      params: {
-        location: {
-          lat: latitude,
-          lng: longitude,
-        },
-        input: `${name} ${address}`,
-        key: GOOGLE_MAPS_API_KEY,
-      },
-      timeout: 1000,
-    })
 
-  if (!placeId) {
-    throw new NotFoundError('No data for that place')
-  }
   const isPlaceExcluded = await redis.getAsync(`exclude__${placeId}`)
   if (isPlaceExcluded) {
     throw new NotFoundError('No data for that place')
@@ -69,6 +54,10 @@ export default async (name, address, latitude, longitude) => {
 
     if (placeDetails.data.error_message && placeDetails.data.error_message.length) {
       throw new Error(placeDetails.data.error_message)
+    }
+
+    if (placeDetails.data.status === 'INVALID_REQUEST') {
+      throw new NotFoundError(`Place with id not found ${placeId}`)
     }
 
     busyHours = await fetchBusyHours(placeDetails.data.result.url)
@@ -103,8 +92,6 @@ export default async (name, address, latitude, longitude) => {
           const range = timeRanges.find(r => busyHour.hour >= r.from && busyHour.hour < r.to)
 
           if (range) {
-            console.dir({ range, acc }, { depth: 20, colors: true })
-
             const t = acc.find(r => r.timeRange === range.name)
 
             t.load += busyHour.percentage

@@ -62,10 +62,17 @@ const fillMissingTimeRanges = (busyHours, placeArea) => {
 }
 
 export default async openRoutePlaceId => {
-  const { data: openRoutePlace } = await axios({
-    method: 'GET',
-    url: `http://overpass-api.de/api/interpreter?data=[out:json];way(${openRoutePlaceId});out geom;`,
-  })
+  let openRoutePlace = false
+  try {
+    const { data } = await axios({
+      method: 'GET',
+      url: `http://overpass-api.de/api/interpreter?data=[out:json];way(${openRoutePlaceId});out geom;`,
+    })
+
+    openRoutePlace = data
+  } catch(e) {
+    throw new NotFoundError(`Place with id of '${openRoutePlaceId}' not found`)
+  }
 
   if (openRoutePlace.elements.length === 0) {
     throw new NotFoundError(`Place with id of '${openRoutePlaceId}' not found`)
