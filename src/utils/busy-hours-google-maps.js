@@ -39,7 +39,7 @@ export default async placeId => {
 
   const isPlaceExcluded = await redis.getAsync(`exclude__${placeId}`)
   if (isPlaceExcluded) {
-    throw new NotFoundError('No data for that place')
+    throw new NotFoundError(`No data for place ${placeId}`)
   }
 
   busyHours = await redis.getAsync(placeId)
@@ -60,6 +60,7 @@ export default async placeId => {
       throw new NotFoundError(`Place with id not found ${placeId}`)
     }
 
+    console.log('######', placeDetails.data.result.url)
     busyHours = await fetchBusyHours(placeDetails.data.result.url)
 
     if (busyHours) {
