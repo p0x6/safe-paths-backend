@@ -114,7 +114,7 @@ export default async (req, res) => {
       if (
         !busyHoursResult
         || !busyHoursResult.week
-        || busyHoursResult.week.length !== 7
+        // || busyHoursResult.week.length !== 7
         || !busyHoursResult.week[dayOfWeek]
         || !busyHoursResult.week[dayOfWeek].hours
         || busyHoursResult.week[dayOfWeek].hours.length === 0
@@ -133,7 +133,7 @@ export default async (req, res) => {
           placeId: placeInfo.data.result.place_id,
           name: placeInfo.data.result.name,
           address: placeInfo.data.result.address_components.map(v => v.long_name).join(', '),
-          busyPercentage: busyHoursResult.week[dayOfWeek].hours,
+          busyPercentage: busyHoursResult.week,
         },
       }
     })))
@@ -146,7 +146,17 @@ export default async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
     return res.json({
       type: 'FeatureCollection',
-      features: [...fetchedPlaces, ...placesInCache],
+      features: [
+        ...fetchedPlaces,
+        ...placesInCache,
+      ]
+        .map(place => {
+          if (place.properties.busyPercentage) {
+            place.properties.busyPercentage = place.properties.busyPercentage.find(b => weekDays[b.day] === dayOfWeek).hours
+          }
+
+          return place
+        }),
     })
   } catch (err) {
     logger.error(err)
