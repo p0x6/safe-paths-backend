@@ -24,7 +24,6 @@ export default async (req, res) => {
     const data = validator.validate(
       req.query,
       Joi.object().keys({
-        address: Joi.string(),
         placeId: Joi.string().required(),
         type: Joi.string().default('google').valid('google', 'own'),
       }),
