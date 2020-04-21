@@ -1,8 +1,6 @@
-import googleMaps from '@googlemaps/google-maps-services-js'
 import restifyErrors from 'restify-errors'
 import { redis, busyHours as fetchBusyHours } from '../libs/index.js'
 
-const { Client } = googleMaps
 const { NotFoundError } = restifyErrors
 const timeRanges = [{
   name: '9am - 12pm',
@@ -21,8 +19,6 @@ const timeRanges = [{
   from: 18,
   to: 21,
 }]
-const { GOOGLE_MAPS_API_KEY } = process.env
-const client = new Client({})
 
 const weekDays = {
   'Sun': 0,
@@ -34,46 +30,30 @@ const weekDays = {
   'Sat': 6,
 }
 
-export default async placeId => {
+export default async place => {
   let busyHours = false
 
-  const isPlaceExcluded = await redis.getAsync(`exclude__${placeId}`)
+  const isPlaceExcluded = await redis.getAsync(`exclude__${place.placeId}`)
   if (isPlaceExcluded) {
-    throw new NotFoundError(`No data for place ${placeId}`)
+    throw new NotFoundError(`No data for place ${place.placeId}`)
   }
 
-  busyHours = await redis.getAsync(placeId)
+  busyHours = await redis.getAsync(place.placeId)
 
   if(!busyHours) {
-    const placeDetails = await client.placeDetails({
-      params: {
-        place_id: placeId,
-        key: GOOGLE_MAPS_API_KEY,
-      },
-    })
-
-    if (placeDetails.data.error_message && placeDetails.data.error_message.length) {
-      throw new Error(placeDetails.data.error_message)
-    }
-
-    if (placeDetails.data.status === 'INVALID_REQUEST') {
-      throw new NotFoundError(`Place with id not found ${placeId}`)
-    }
-
-    console.log('######', placeDetails.data.result.url)
-    busyHours = await fetchBusyHours(placeDetails.data.result.url)
+    busyHours = await fetchBusyHours(place.url)
 
     if (busyHours) {
       const dataToCache = {
         type: 'Feature',
         geometry: {
           type: 'Point',
-          coordinates: [placeDetails.data.result.geometry.location.lng, placeDetails.data.result.geometry.location.lat],
+          coordinates: [place.coordinates.longitude, place.coordinates.latitude],
         },
         properties: {
-          placeId: placeDetails.data.result.place_id,
-          name: placeDetails.data.result.name,
-          address: placeDetails.data.result.address_components.map(v => v.long_name).join(', '),
+          placeId: place.placeId,
+          name: place.name,
+          address: place.address,
           busyPercentage: busyHours.week,
         },
       }
@@ -83,7 +63,7 @@ export default async placeId => {
       busyHours = busyHours.week
 
     } else {
-      await redis.setAsync(`exclude__${placeId}`, placeId)
+      await redis.setAsync(`exclude__${place.placeId}`, place.placeId)
     }
   } else {
     busyHours = busyHours.properties.busyPercentage.map(googleBusyHours => ({
