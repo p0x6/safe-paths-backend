@@ -40,34 +40,33 @@ export default async (req, res) => {
     if (data.type === 'own') {
       busyHours = await getBusyHoursBasedOnOwnData(data.placeId)
     } else {
-
-      const placeDetails = await client.placeDetails({
+      const { data: placeDetails } = await client.placeDetails({
         params: {
           place_id: data.placeId,
           key: GOOGLE_MAPS_API_KEY,
         },
       })
-      const place = {
-        placeId: placeDetails.data.result.place_id,
-        url: placeDetails.data.result.url,
-        name: placeDetails.data.result.name,
-        address: placeDetails.data.result.formatted_address,
-        coordinates: {
-          latitude: placeDetails.data.result.geometry.location.lat,
-          longitude: placeDetails.data.result.geometry.location.lng,
-        },
-      }
 
-      if (placeDetails.data.error_message && placeDetails.data.error_message.length) {
-        throw new Error(placeDetails.data.error_message)
+      if (placeDetails.error_message && placeDetails.error_message.length) {
+        throw new Error(placeDetails.error_message)
       }
-
-      if (placeDetails.data.status === 'INVALID_REQUEST') {
+      if (placeDetails.status === 'INVALID_REQUEST') {
         throw new NotFoundError(`Place with id not found ${data.placeId}`)
       }
 
-      const lng = placeDetails.data.result.geometry.location.lng
-      const lat = placeDetails.data.result.geometry.location.lat
+      const place = {
+        placeId: placeDetails.result.place_id,
+        url: placeDetails.result.url,
+        name: placeDetails.result.name,
+        address: placeDetails.result.formatted_address,
+        coordinates: {
+          latitude: placeDetails.result.geometry.location.lat,
+          longitude: placeDetails.result.geometry.location.lng,
+        },
+      }
+
+      const lng = placeDetails.result.geometry.location.lng
+      const lat = placeDetails.result.geometry.location.lat
       const wayQuery = `
       [out:json];
       way(around:25,${lat},${lng})
