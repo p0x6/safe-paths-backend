@@ -50,7 +50,7 @@ export default async (req, res) => {
 
       const { data: openRoutePlaces } = await axios({
         method: 'GET',
-        url: `https://api.openrouteservice.org/geocode/autocomplete?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(placeDetails.data.result.formatted_address)}`,
+        url: `https://api.openrouteservice.org/geocode/autocomplete?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(`${placeDetails.data.result.name} ${placeDetails.data.result.formatted_address}`)}`,
       })
 
       const placePolygon = circle.default(
@@ -63,6 +63,8 @@ export default async (req, res) => {
           units: 'meters',
         },
       )
+
+      console.dir({ a: openRoutePlaces.features }, { depth: 20, colors: true })
 
       if (
         openRoutePlaces.features
@@ -83,6 +85,12 @@ export default async (req, res) => {
         busyHours = await getBusyHoursBasedOnGoogleMaps(data.placeId)
       }
 
+      busyHours.name = placeDetails.data.result.name
+      busyHours.address = placeDetails.data.result.formatted_address
+      busyHours.coordinates = {
+        latitude: placeDetails.data.result.geometry.location.lat,
+        longitude: placeDetails.data.result.geometry.location.lng,
+      }
     }
 
     return res.json(busyHours)
