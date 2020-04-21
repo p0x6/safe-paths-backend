@@ -51,7 +51,7 @@ export default async (req, res) => {
 
       const { data: openRoutePlaces } = await axios({
         method: 'GET',
-        url: `https://api.openrouteservice.org/geocode/autocomplete?api_key=${OPENROUTE_API_KEY}&text=${placeDetails.data.result.formatted_address}`,
+        url: `https://api.openrouteservice.org/geocode/autocomplete?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(placeDetails.data.result.formatted_address)}`,
       })
 
       const placePolygon = circle.default(
