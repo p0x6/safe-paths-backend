@@ -2,7 +2,7 @@ import googleMaps from '@googlemaps/google-maps-services-js'
 import Joi from '@hapi/joi'
 import moment from 'moment-timezone'
 import geoTz from 'geo-tz'
-import { logger, busyHours, redis } from '../libs/index.js'
+import { logger, redis, fetchGoogleBusyHours } from '../libs/index.js'
 import { dump, placeTypes, validator } from '../utils/index.js'
 
 const { Client } = googleMaps
@@ -78,6 +78,8 @@ export default async (req, res) => {
 
     const userTimezone = geoTz(data.latitude, data.longitude)[0]
     const dayOfWeek = weekDays[moment().tz(userTimezone).format('ddd')]
+    console.dir({ dayOfWeek }, { depth: 20, colors: true })
+
     const placesMap = {}
     const places = await getPlacesNearby(
       data.latitude,
@@ -109,16 +111,9 @@ export default async (req, res) => {
         throw new Error(placeInfo.data.error_message)
       }
 
-      const busyHoursResult = await busyHours(placeInfo.data.result.url)
+      const fetchGoogleBusyHoursResult = await fetchGoogleBusyHours(placeInfo.data.result.url)
 
-      if (
-        !busyHoursResult
-        || !busyHoursResult.week
-        // || busyHoursResult.week.length !== 7
-        || !busyHoursResult.week[dayOfWeek]
-        || !busyHoursResult.week[dayOfWeek].hours
-        || busyHoursResult.week[dayOfWeek].hours.length === 0
-      ) {
+      if (!fetchGoogleBusyHoursResult) {
         placesToExclude.push(placeInfo.data.result.place_id)
         return false
       }
@@ -133,7 +128,7 @@ export default async (req, res) => {
           placeId: placeInfo.data.result.place_id,
           name: placeInfo.data.result.name,
           address: placeInfo.data.result.address_components.map(v => v.long_name).join(', '),
-          busyPercentage: busyHoursResult.week,
+          busyPercentage: fetchGoogleBusyHoursResult,
         },
       }
     })))
@@ -152,7 +147,9 @@ export default async (req, res) => {
       ]
         .map(place => {
           if (place.properties.busyPercentage) {
-            place.properties.busyPercentage = place.properties.busyPercentage.find(b => weekDays[b.day] === dayOfWeek).hours
+            console.dir({ aaa: place.properties.busyPercentage }, { depth: 20, colors: true })
+
+            place.properties.busyPercentage = place.properties.busyPercentage.find(b => b.dayOfWeek === dayOfWeek).timeRange
           }
 
           return place

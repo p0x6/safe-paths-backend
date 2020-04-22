@@ -10,6 +10,23 @@ const { NotFoundError } = restifyErrors
 const { INTERSECTION_DELTA_MINUTES } = process.env
 const timeRanges = ['9am - 12pm', '12pm - 3pm', '3pm - 6pm', '6pm - 9pm']
 
+const convertHours = hour => {
+  const res = /(\d{1,2})(am|pm)/.exec(hour)
+  const parsedHour = parseInt(res[1],10)
+  const ampm = res[2]
+
+  if(ampm == 'am' && parsedHour==12) {
+    return 0
+  }
+  if (ampm === 'pm' && parsedHour == 12) {
+    return 12
+  }
+  if (ampm === 'pm') {
+    return parsedHour + 12
+  }
+  return parsedHour
+}
+
 // JS      Monday-1 Tuesday-2 ... Sunday-7
 // Mongodb Sunday-1 Monday-2 ... Saturday-7
 const dayOfWeeks = {
@@ -179,9 +196,20 @@ export default async openRoutePlaceId => {
     },
   }])
 
+  const formatedBusyHours = fillMissingTimeRanges(calculatedBusyHours, placeArea)
+
+  formatedBusyHours.forEach((busyHourDay) => {
+    busyHourDay.timeRange.forEach(timeRange => {
+      const splitedRange = timeRange.timeRange.split(' - ')
+
+      timeRange.from = convertHours(splitedRange[0])
+      timeRange.to = convertHours(splitedRange[1])
+    })
+  })
+
   return {
     devicesAtPlaceNow: devicesAtPlaceNow / theoreticalPeopleDensity(placeArea),
     densityNow: devicesAtPlaceNow / theoreticalPeopleDensity(placeArea),
-    busyHours: fillMissingTimeRanges(calculatedBusyHours, placeArea),
+    busyHours: formatedBusyHours,
   }
 }

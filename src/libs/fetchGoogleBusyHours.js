@@ -1,11 +1,23 @@
 import fetch from 'axios'
 
+const weekDays = {
+  'Sun': 0,
+  'Mon': 1,
+  'Tue': 2,
+  'Wed': 3,
+  'Thu': 4,
+  'Fri': 5,
+  'Sat': 6,
+}
+
 const formatOutput = array => {
   return {
     hour: array[0],
     percentage: array[1],
   }
 }
+
+const convertHours = hour => `${(hour % 12) || 12}${hour >= 12 ? 'pm' : 'am'}`
 
 const extractData = html => {
   // ACHTUNG! HACKY AF
@@ -72,7 +84,56 @@ const fetchHtml = async(url) => {
 
 export default async placeUrl => {
   const html = await fetchHtml(placeUrl)
-  const busyHours = processHtml(html)
+  let busyHours = processHtml(html)
+
+  if (busyHours.status === 'ok' && busyHours.week && busyHours.week.length === 7) {
+    busyHours = busyHours.week.map(dayBusyHours => {
+      const ranges = []
+
+      for (let i=0; i<dayBusyHours.hours.length; i+=3) {
+        const chunk = dayBusyHours.hours.slice(i,i+3)
+
+        ranges.push({
+          timeRange: `${convertHours(chunk[0].hour)} - ${convertHours(chunk.slice(-1).pop().hour)}`,
+          from: chunk[0].hour,
+          to: chunk.slice(-1).pop().hour,
+          percentage: 0,
+          count: 0,
+        })
+      }
+
+      return {
+        dayOfWeek: weekDays[dayBusyHours.day],
+        timeRange: dayBusyHours.hours.reduce(
+          (acc, busyHour) => {
+            const range = acc.find(r => {
+              if (r.from == r.to) {
+                return busyHour.hour === r.from
+              } else {
+                return busyHour.hour >= r.from && busyHour.hour < r.to
+              }
+            })
+
+            if (range) {
+              range.percentage += busyHour.percentage
+              range.count++
+            }
+
+            return acc
+          },
+          ranges,
+        )
+          .map(busyHour => ({
+            timeRange: busyHour.timeRange,
+            from: busyHour.from,
+            to: busyHour.to,
+            load: (busyHour.percentage / busyHour.count).toFixed(2),
+          })),
+      }
+    })
+  } else {
+    busyHours = false
+  }
 
   return busyHours
 }

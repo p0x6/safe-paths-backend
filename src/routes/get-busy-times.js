@@ -25,6 +25,33 @@ const makePolygonFromGeometry = geometry => geometry
     coordinates: [[]],
   })
 
+const fetchGooglePlaceDetails = async placeId => {
+  const { data: placeDetails } = await client.placeDetails({
+    params: {
+      place_id: placeId,
+      key: GOOGLE_MAPS_API_KEY,
+    },
+  })
+
+  if (placeDetails.error_message && placeDetails.error_message.length) {
+    throw new Error(placeDetails.error_message)
+  }
+  if (placeDetails.status === 'INVALID_REQUEST') {
+    throw new NotFoundError(`Place with id not found ${placeId}`)
+  }
+
+  return {
+    placeId: placeDetails.result.place_id,
+    url: placeDetails.result.url,
+    name: placeDetails.result.name,
+    address: placeDetails.result.formatted_address,
+    coordinates: {
+      latitude: placeDetails.result.geometry.location.lat,
+      longitude: placeDetails.result.geometry.location.lng,
+    },
+  }
+}
+
 export default async (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json')
@@ -40,36 +67,10 @@ export default async (req, res) => {
     if (data.type === 'own') {
       busyHours = await getBusyHoursBasedOnOwnData(data.placeId)
     } else {
-      const { data: placeDetails } = await client.placeDetails({
-        params: {
-          place_id: data.placeId,
-          key: GOOGLE_MAPS_API_KEY,
-        },
-      })
-
-      if (placeDetails.error_message && placeDetails.error_message.length) {
-        throw new Error(placeDetails.error_message)
-      }
-      if (placeDetails.status === 'INVALID_REQUEST') {
-        throw new NotFoundError(`Place with id not found ${data.placeId}`)
-      }
-
-      const place = {
-        placeId: placeDetails.result.place_id,
-        url: placeDetails.result.url,
-        name: placeDetails.result.name,
-        address: placeDetails.result.formatted_address,
-        coordinates: {
-          latitude: placeDetails.result.geometry.location.lat,
-          longitude: placeDetails.result.geometry.location.lng,
-        },
-      }
-
-      const lng = placeDetails.result.geometry.location.lng
-      const lat = placeDetails.result.geometry.location.lat
+      const place = await fetchGooglePlaceDetails(data.placeId)
       const wayQuery = `
       [out:json];
-      way(around:25,${lat},${lng})
+      way(around:25,${place.coordinates.latitude},${place.coordinates.longitude})
       ;out geom;
       `
       const { data: openRoutePlaces = { elements: [] } } = await axios({
@@ -80,14 +81,17 @@ export default async (req, res) => {
         element => isPointInPolygon.default(
           {
             type: 'Point',
-            coordinates: [lng, lat],
+            coordinates: [
+              place.coordinates.longitude,
+              place.coordinates.latitude,
+            ],
           },
           makePolygonFromGeometry(element.geometry),
         ),
       )
 
       if (way) {
-        // console.log('OWN_DATA')
+        console.log('OWN_DATA')
         busyHours = await getBusyHoursBasedOnOwnData(way.id)
 
         const emptyRanges = busyHours.busyHours.reduce(
@@ -99,11 +103,12 @@ export default async (req, res) => {
         )
 
         if (emptyRanges > 2) {
-          // console.log('GOOGLE_DATA')
+          console.log('NOT_ENOUGH_OWN_DATA')
+          console.log('GOOGLE_DATA')
           busyHours = await getBusyHoursBasedOnGoogleMaps(place)
         }
       } else {
-        // console.log('GOOGLE_DATA')
+        console.log('GOOGLE_DATA')
         busyHours = await getBusyHoursBasedOnGoogleMaps(place)
       }
 
