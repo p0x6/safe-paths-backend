@@ -1,4 +1,5 @@
 import fetch from 'axios'
+import logger from './logger.js'
 
 const weekDays = {
   'Sun': 0,
@@ -35,7 +36,7 @@ const processHtml = html => {
   try{
     popular_times = extractData(html)
   } catch(error){
-    console.dir(error, { depth: 20, colors: true })
+    logger.error(error)
     return null
   }
 

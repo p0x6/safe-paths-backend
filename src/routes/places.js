@@ -78,7 +78,6 @@ export default async (req, res) => {
 
     const userTimezone = geoTz(data.latitude, data.longitude)[0]
     const dayOfWeek = weekDays[moment().tz(userTimezone).format('ddd')]
-    console.dir({ dayOfWeek }, { depth: 20, colors: true })
 
     const placesMap = {}
     const places = await getPlacesNearby(
@@ -147,8 +146,6 @@ export default async (req, res) => {
       ]
         .map(place => {
           if (place.properties.busyPercentage) {
-            console.dir({ aaa: place.properties.busyPercentage }, { depth: 20, colors: true })
-
             place.properties.busyPercentage = place.properties.busyPercentage.find(b => b.dayOfWeek === dayOfWeek).timeRange
           }
 
