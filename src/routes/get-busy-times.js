@@ -1,20 +1,14 @@
-import googleMaps from '@googlemaps/google-maps-services-js'
 import Joi from '@hapi/joi'
 import axios from 'axios'
 import isPointInPolygon from '@turf/boolean-point-in-polygon'
-import restifyErrors from 'restify-errors'
 import { logger } from '../libs/index.js'
 import {
   dump,
   validator,
   getBusyHoursBasedOnOwnData,
   getBusyHoursBasedOnGoogleMaps,
+  getGooglePlaceDetails,
 } from '../utils/index.js'
-
-const { NotFoundError } = restifyErrors
-const { Client } = googleMaps
-const { GOOGLE_MAPS_API_KEY } = process.env
-const client = new Client({})
 
 const makePolygonFromGeometry = geometry => geometry
   .reduce((polygon, coordinates) => {
@@ -24,33 +18,6 @@ const makePolygonFromGeometry = geometry => geometry
     type: 'Polygon',
     coordinates: [[]],
   })
-
-const fetchGooglePlaceDetails = async placeId => {
-  const { data: placeDetails } = await client.placeDetails({
-    params: {
-      place_id: placeId,
-      key: GOOGLE_MAPS_API_KEY,
-    },
-  })
-
-  if (placeDetails.error_message && placeDetails.error_message.length) {
-    throw new Error(placeDetails.error_message)
-  }
-  if (placeDetails.status === 'INVALID_REQUEST') {
-    throw new NotFoundError(`Place with id not found ${placeId}`)
-  }
-
-  return {
-    placeId: placeDetails.result.place_id,
-    url: placeDetails.result.url,
-    name: placeDetails.result.name,
-    address: placeDetails.result.formatted_address,
-    coordinates: {
-      latitude: placeDetails.result.geometry.location.lat,
-      longitude: placeDetails.result.geometry.location.lng,
-    },
-  }
-}
 
 export default async (req, res) => {
   try {
@@ -67,7 +34,7 @@ export default async (req, res) => {
     if (data.type === 'own') {
       busyHours = await getBusyHoursBasedOnOwnData(data.placeId)
     } else {
-      const place = await fetchGooglePlaceDetails(data.placeId)
+      const place = await getGooglePlaceDetails(data.placeId)
       const wayQuery = `
       [out:json];
       way(around:25,${place.coordinates.latitude},${place.coordinates.longitude})
@@ -91,7 +58,6 @@ export default async (req, res) => {
       )
 
       if (way) {
-        console.log('OWN_DATA')
         busyHours = await getBusyHoursBasedOnOwnData(way.id)
 
         const emptyRanges = busyHours.busyHours.reduce(
@@ -101,14 +67,10 @@ export default async (req, res) => {
           },
           0,
         )
-
         if (emptyRanges > 2) {
-          console.log('NOT_ENOUGH_OWN_DATA')
-          console.log('GOOGLE_DATA')
           busyHours = await getBusyHoursBasedOnGoogleMaps(place)
         }
       } else {
-        console.log('GOOGLE_DATA')
         busyHours = await getBusyHoursBasedOnGoogleMaps(place)
       }
 
