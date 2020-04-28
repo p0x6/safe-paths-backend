@@ -59,6 +59,7 @@ export default async (req, res) => {
 
       if (way) {
         busyHours = await getBusyHoursBasedOnOwnData(way.id)
+          .catch(async () => await getBusyHoursBasedOnGoogleMaps(place))
 
         const emptyRanges = busyHours.busyHours.reduce(
           (acc, busyHour) => {
